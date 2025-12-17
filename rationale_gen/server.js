@@ -192,6 +192,14 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
   }
 });
 
+// Serve React app for all non-API routes
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`Rationale Generator server running on http://localhost:${PORT}`);
 });

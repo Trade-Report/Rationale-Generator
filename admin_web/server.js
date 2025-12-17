@@ -13,6 +13,14 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
+// Serve React app for all non-API routes
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Data file path
 const DATA_FILE = path.join(__dirname, 'data.json');
 
