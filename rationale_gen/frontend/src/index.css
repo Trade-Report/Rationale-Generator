@@ -13,6 +13,12 @@ body {
   background: #f8fafc;
   color: #1e293b;
   line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark-mode body {
+  background: #0f172a;
+  color: #f1f5f9;
 }
 
 code {
