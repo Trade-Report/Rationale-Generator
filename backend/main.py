@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from routes.gemini_routes import router as gemini_router
 
-app = FastAPI()
+app = FastAPI(title="Rationale Generator API")
 
 app.include_router(gemini_router)
 
