@@ -572,11 +572,12 @@ function App() {
 
     console.log('Exporting PDF with imagePreview:', imagePreview ? 'available' : 'missing')
     
-    // Extract Excel row data if available (for TradingName, target1, target2, stoploss)
+    // Extract Excel row data if available (for TradingName, target1, target2, target3/stoploss, entryPrice)
     let tradingName = ''
     let target1 = ''
     let target2 = ''
-    let stoploss = ''
+    let target3 = '' // This will be stoploss
+    let entryPrice = ''
     
     if (fileInfo && fileInfo.type === 'excel' && selectedStockIndex !== null && excelRows[selectedStockIndex]) {
       const selectedRow = excelRows[selectedStockIndex]
@@ -588,7 +589,8 @@ function App() {
       tradingName = getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || '')
       target1 = getStringValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || '')
       target2 = getStringValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || '')
-      stoploss = getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || '')
+      target3 = getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || selectedRow.target3 || selectedRow.Target3 || selectedRow.target_3 || selectedRow['Target 3'] || '')
+      entryPrice = getStringValue(selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || selectedRow['Entry Price'] || '')
     }
 
     const doc = new jsPDF()
@@ -728,8 +730,8 @@ function App() {
       const contentEndY = headerHeight + technicalCommentaryHeight - margin
       const availableContentHeight = contentEndY - contentStartY
       
-      // Calculate font size to fit content
-      let fontSize = 10
+      // Start with larger font size (increased from 10 to 13)
+      let fontSize = 13
       doc.setFontSize(fontSize)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(0, 0, 0)
@@ -737,13 +739,25 @@ function App() {
       let lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
       let contentHeight = lines.length * lineHeight
       
-      // Reduce font size if content doesn't fit
-      while (contentHeight > availableContentHeight && fontSize > 6) {
-        fontSize -= 0.5
-        doc.setFontSize(fontSize)
-        lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
-        lines = doc.splitTextToSize(cleanRationale, maxWidth)
-        contentHeight = lines.length * lineHeight
+      // If content is short, try to increase font size to use more space
+      if (contentHeight < availableContentHeight * 0.6) {
+        // Content is short - try to use bigger font (max 15)
+        while (contentHeight < availableContentHeight * 0.85 && fontSize < 15) {
+          fontSize += 0.5
+          doc.setFontSize(fontSize)
+          lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
+          lines = doc.splitTextToSize(cleanRationale, maxWidth)
+          contentHeight = lines.length * lineHeight
+        }
+      } else {
+        // Content is long or fits well - reduce font size if it overflows
+        while (contentHeight > availableContentHeight && fontSize > 6) {
+          fontSize -= 0.5
+          doc.setFontSize(fontSize)
+          lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
+          lines = doc.splitTextToSize(cleanRationale, maxWidth)
+          contentHeight = lines.length * lineHeight
+        }
       }
       
       // Render content (left aligned) - bullet points already in cleanRationale
@@ -766,8 +780,6 @@ function App() {
       
       // Set common font properties
       doc.setFont('helvetica', 'bold')
-      doc.setTextColor(0, 0, 0)
-      doc.setFillColor(230, 240, 255) // Light blue background for all items
       
       // 1. TradingName (smaller font size)
       if (tradingName.trim()) {
@@ -775,56 +787,36 @@ function App() {
         const textWidth = doc.getTextWidth(tradingName)
         const boxWidth = textWidth + 2 * itemPadding
         
-        // Draw curved background
+        // Draw curved background with light blue color
+        doc.setFillColor(230, 240, 255) // Light blue
         doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
         
-        // Add text
+        // Add text (black on light blue background)
+        doc.setTextColor(0, 0, 0)
         doc.text(tradingName, currentX + itemPadding, rowY)
         currentX += boxWidth + itemSpacing
       }
       
-      // 2. Target1
-      if (target1.trim()) {
-        doc.setFontSize(10)
-        const text = `Target 1: ${target1}`
-        const textWidth = doc.getTextWidth(text)
-        const boxWidth = textWidth + 2 * itemPadding
-        
-        // Draw curved background
-        doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
-        
-        // Add text
-        doc.text(text, currentX + itemPadding, rowY)
-        currentX += boxWidth + itemSpacing
-      }
+      // 2. Concatenated Target1, Target2, and StopLoss with "-" separator in a single box
+      const targetParts = []
+      if (target1.trim()) targetParts.push(`Target 1: ${target1}`)
+      if (target2.trim()) targetParts.push(`Target 2: ${target2}`)
+      if (stoploss.trim()) targetParts.push(`Stop Loss: ${stoploss}`)
       
-      // 3. Target2
-      if (target2.trim()) {
+      if (targetParts.length > 0) {
         doc.setFontSize(10)
-        const text = `Target 2: ${target2}`
-        const textWidth = doc.getTextWidth(text)
+        // Concatenate with " - " separator
+        const concatenatedText = targetParts.join(' - ')
+        const textWidth = doc.getTextWidth(concatenatedText)
         const boxWidth = textWidth + 2 * itemPadding
         
-        // Draw curved background
+        // Draw curved background with light blue color
+        doc.setFillColor(230, 240, 255) // Light blue
         doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
         
-        // Add text
-        doc.text(text, currentX + itemPadding, rowY)
-        currentX += boxWidth + itemSpacing
-      }
-      
-      // 4. StopLoss
-      if (stoploss.trim()) {
-        doc.setFontSize(10)
-        const text = `Stop Loss: ${stoploss}`
-        const textWidth = doc.getTextWidth(text)
-        const boxWidth = textWidth + 2 * itemPadding
-        
-        // Draw curved background
-        doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
-        
-        // Add text
-        doc.text(text, currentX + itemPadding, rowY)
+        // Add text (black on light blue background)
+        doc.setTextColor(0, 0, 0)
+        doc.text(concatenatedText, currentX + itemPadding, rowY)
       }
       
       yPosition = rowY + itemHeight + 8 // Add spacing after the row
@@ -1180,54 +1172,6 @@ function App() {
               <h2>Welcome, {currentUser.username}!</h2>
               <p className="welcome-subtitle">Upload and analyze your trading files</p>
             </div>
-
-            {usage && (
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <div className="stat-icon-wrapper">
-                    <FiUpload className="stat-icon" />
-                  </div>
-                  <div className="stat-content">
-                    <h3 className="stat-label">Total Uploads</h3>
-                    <p className="stat-value">{usage.totalUploads}</p>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-icon-wrapper">
-                    <FiFileText className="stat-icon" />
-                  </div>
-                  <div className="stat-content">
-                    <h3 className="stat-label">Excel Files</h3>
-                    <p className="stat-value">{usage.excelUploads}</p>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-icon-wrapper">
-                    <FiImage className="stat-icon" />
-                  </div>
-                  <div className="stat-content">
-                    <h3 className="stat-label">Image Files</h3>
-                    <p className="stat-value">{usage.imageUploads}</p>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-icon-wrapper">
-                    <FiClock className="stat-icon" />
-                  </div>
-                  <div className="stat-content">
-                    <h3 className="stat-label">Last Activity</h3>
-                    <p className="stat-value-small">
-                      {usage.lastActivity 
-                        ? new Date(usage.lastActivity).toLocaleDateString()
-                        : 'Never'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="upload-section">
               <h2>Upload File for Analysis</h2>
