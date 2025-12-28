@@ -572,12 +572,12 @@ function App() {
 
     console.log('Exporting PDF with imagePreview:', imagePreview ? 'available' : 'missing')
     
-    // Extract Excel row data if available (for TradingName, target1, target2, target3/stoploss, entryPrice)
+    // Extract Excel row data if available (for TradingName, target1, target2, stoploss, entrylevel)
     let tradingName = ''
     let target1 = ''
     let target2 = ''
-    let target3 = '' // This will be stoploss
-    let entryPrice = ''
+    let stoploss = ''
+    let entrylevel = ''
     
     if (fileInfo && fileInfo.type === 'excel' && selectedStockIndex !== null && excelRows[selectedStockIndex]) {
       const selectedRow = excelRows[selectedStockIndex]
@@ -589,8 +589,8 @@ function App() {
       tradingName = getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || '')
       target1 = getStringValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || '')
       target2 = getStringValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || '')
-      target3 = getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || selectedRow.target3 || selectedRow.Target3 || selectedRow.target_3 || selectedRow['Target 3'] || '')
-      entryPrice = getStringValue(selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || selectedRow['Entry Price'] || '')
+      stoploss = getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || '')
+      entrylevel = getStringValue(selectedRow.entrylevel || selectedRow.EntryLevel || selectedRow.entry_level || selectedRow['Entry Level'] || selectedRow['EntryLevel'] || selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || '')
     }
 
     const doc = new jsPDF()
@@ -721,7 +721,7 @@ function App() {
       doc.setFontSize(12)
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
-      doc.text('Technical COMMENTORY', margin, yPosition)
+      doc.text('Technical Commentary', margin, yPosition)
       yPosition += 10
       
       // Technical Commentary Content (left aligned, auto-size to fit 40% height)
@@ -730,8 +730,8 @@ function App() {
       const contentEndY = headerHeight + technicalCommentaryHeight - margin
       const availableContentHeight = contentEndY - contentStartY
       
-      // Start with larger font size (increased from 10 to 13)
-      let fontSize = 13
+      // Start with larger font size (increased from 13 to 16, +3 sizes)
+      let fontSize = 16
       doc.setFontSize(fontSize)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(0, 0, 0)
@@ -741,8 +741,8 @@ function App() {
       
       // If content is short, try to increase font size to use more space
       if (contentHeight < availableContentHeight * 0.6) {
-        // Content is short - try to use bigger font (max 15)
-        while (contentHeight < availableContentHeight * 0.85 && fontSize < 15) {
+        // Content is short - try to use bigger font (max 18, increased from 15)
+        while (contentHeight < availableContentHeight * 0.85 && fontSize < 18) {
           fontSize += 0.5
           doc.setFontSize(fontSize)
           lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
@@ -751,7 +751,7 @@ function App() {
         }
       } else {
         // Content is long or fits well - reduce font size if it overflows
-        while (contentHeight > availableContentHeight && fontSize > 6) {
+        while (contentHeight > availableContentHeight && fontSize > 9) {
           fontSize -= 0.5
           doc.setFontSize(fontSize)
           lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
@@ -770,8 +770,8 @@ function App() {
       // Don't reset to headerHeight + technicalCommentaryHeight to avoid whitespace
     }
     
-    // Add TradingName, Target1, Target2, and StopLoss in a single row above image (all with curved backgrounds)
-    if (tradingName.trim() || target1.trim() || target2.trim() || stoploss.trim()) {
+    // Add TradingName, Target, Stoploss, and Entrylevel in a single row above image (all with curved backgrounds)
+    if (tradingName.trim() || target1.trim() || target2.trim() || stoploss.trim() || entrylevel.trim()) {
       const rowY = yPosition + 10
       const itemPadding = 6
       const itemHeight = 8
@@ -797,17 +797,16 @@ function App() {
         currentX += boxWidth + itemSpacing
       }
       
-      // 2. Concatenated Target1, Target2, and StopLoss with "-" separator in a single box
+      // 2. Target: {target1}-{target2} (with label, only target1 and target2)
       const targetParts = []
-      if (target1.trim()) targetParts.push(`Target 1: ${target1}`)
-      if (target2.trim()) targetParts.push(`Target 2: ${target2}`)
-      if (stoploss.trim()) targetParts.push(`Stop Loss: ${stoploss}`)
+      if (target1.trim()) targetParts.push(target1)
+      if (target2.trim()) targetParts.push(target2)
       
       if (targetParts.length > 0) {
         doc.setFontSize(10)
-        // Concatenate with " - " separator
-        const concatenatedText = targetParts.join(' - ')
-        const textWidth = doc.getTextWidth(concatenatedText)
+        const concatenatedTargets = targetParts.join('-')
+        const text = `Target: ${concatenatedTargets}`
+        const textWidth = doc.getTextWidth(text)
         const boxWidth = textWidth + 2 * itemPadding
         
         // Draw curved background with light blue color
@@ -816,7 +815,41 @@ function App() {
         
         // Add text (black on light blue background)
         doc.setTextColor(0, 0, 0)
-        doc.text(concatenatedText, currentX + itemPadding, rowY)
+        doc.text(text, currentX + itemPadding, rowY)
+        currentX += boxWidth + itemSpacing
+      }
+      
+      // 3. Stoploss (with label)
+      if (stoploss.trim()) {
+        doc.setFontSize(10)
+        const text = `Stoploss: ${stoploss}`
+        const textWidth = doc.getTextWidth(text)
+        const boxWidth = textWidth + 2 * itemPadding
+        
+        // Draw curved background with light blue color
+        doc.setFillColor(230, 240, 255) // Light blue
+        doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
+        
+        // Add text (black on light blue background)
+        doc.setTextColor(0, 0, 0)
+        doc.text(text, currentX + itemPadding, rowY)
+        currentX += boxWidth + itemSpacing
+      }
+      
+      // 4. Entrylevel (with label)
+      if (entrylevel.trim()) {
+        doc.setFontSize(10)
+        const text = `Entrylevel: ${entrylevel}`
+        const textWidth = doc.getTextWidth(text)
+        const boxWidth = textWidth + 2 * itemPadding
+        
+        // Draw curved background with light blue color
+        doc.setFillColor(230, 240, 255) // Light blue
+        doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
+        
+        // Add text (black on light blue background)
+        doc.setTextColor(0, 0, 0)
+        doc.text(text, currentX + itemPadding, rowY)
       }
       
       yPosition = rowY + itemHeight + 8 // Add spacing after the row
@@ -885,9 +918,9 @@ function App() {
       const disclaimerMargin = 5
       const disclaimerWidth = pageWidth - 2 * disclaimerMargin
       
-      // Start with larger font size and adjust based on content length
+      // Start with larger font size and adjust based on content length (increased from 9 to 12, +3 sizes)
       // If disclaimer is short, use bigger font; if long, use smaller font
-      let disclaimerFontSize = 9
+      let disclaimerFontSize = 12
       doc.setFontSize(disclaimerFontSize)
       // Use different font style (times/italic for disclaimer)
       doc.setFont('times', 'italic')
@@ -899,8 +932,8 @@ function App() {
       // Adjust font size to fit available height
       // If content is short, try to use larger font; if long, reduce font size
       if (disclaimerContentHeight < availableDisclaimerHeight * 0.5) {
-        // Content is short - try to use bigger font (max 11)
-        while (disclaimerContentHeight < availableDisclaimerHeight * 0.8 && disclaimerFontSize < 11) {
+        // Content is short - try to use bigger font (max 14, increased from 11)
+        while (disclaimerContentHeight < availableDisclaimerHeight * 0.8 && disclaimerFontSize < 14) {
           disclaimerFontSize += 0.5
           doc.setFontSize(disclaimerFontSize)
           lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
@@ -909,7 +942,7 @@ function App() {
         }
       } else {
         // Content is long - reduce font size to fit
-        while (disclaimerContentHeight > availableDisclaimerHeight && disclaimerFontSize > 5) {
+        while (disclaimerContentHeight > availableDisclaimerHeight && disclaimerFontSize > 8) {
           disclaimerFontSize -= 0.5
           doc.setFontSize(disclaimerFontSize)
           lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
@@ -1436,6 +1469,87 @@ function App() {
 
                     {/* Content Preview */}
                     <div style={{ padding: '2rem', minHeight: '400px' }}>
+                      {/* Trading Name, Target, Entrylevel, Stoploss Preview */}
+                      {(fileInfo && fileInfo.type === 'excel' && selectedStockIndex !== null && excelRows[selectedStockIndex]) && (() => {
+                        const selectedRow = excelRows[selectedStockIndex]
+                        const getStringValue = (value) => {
+                          if (value === null || value === undefined) return ''
+                          return String(value)
+                        }
+                        const tradingName = getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || '')
+                        const target1 = getStringValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || '')
+                        const target2 = getStringValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || '')
+                        const stoploss = getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || '')
+                        const entrylevel = getStringValue(selectedRow.entrylevel || selectedRow.EntryLevel || selectedRow.entry_level || selectedRow['Entry Level'] || selectedRow['EntryLevel'] || selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || '')
+                        
+                        const targetParts = []
+                        if (target1.trim()) targetParts.push(target1)
+                        if (target2.trim()) targetParts.push(target2)
+                        const targetText = targetParts.length > 0 ? targetParts.join('-') : ''
+                        
+                        return (
+                          <div style={{ 
+                            marginBottom: '1.5rem', 
+                            padding: '1rem', 
+                            background: '#e6f0ff', 
+                            borderRadius: '8px',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '0.75rem',
+                            alignItems: 'center'
+                          }}>
+                            {tradingName.trim() && (
+                              <div style={{ 
+                                padding: '0.5rem 1rem', 
+                                background: '#ffffff', 
+                                borderRadius: '6px',
+                                border: '1px solid #cce5ff',
+                                fontWeight: 'bold',
+                                fontSize: '13px'
+                              }}>
+                                {tradingName}
+                              </div>
+                            )}
+                            {targetText && (
+                              <div style={{ 
+                                padding: '0.5rem 1rem', 
+                                background: '#ffffff', 
+                                borderRadius: '6px',
+                                border: '1px solid #cce5ff',
+                                fontWeight: 'bold',
+                                fontSize: '12px'
+                              }}>
+                                Target: {targetText}
+                              </div>
+                            )}
+                            {stoploss.trim() && (
+                              <div style={{ 
+                                padding: '0.5rem 1rem', 
+                                background: '#ffffff', 
+                                borderRadius: '6px',
+                                border: '1px solid #cce5ff',
+                                fontWeight: 'bold',
+                                fontSize: '12px'
+                              }}>
+                                Stoploss: {stoploss}
+                              </div>
+                            )}
+                            {entrylevel.trim() && (
+                              <div style={{ 
+                                padding: '0.5rem 1rem', 
+                                background: '#ffffff', 
+                                borderRadius: '6px',
+                                border: '1px solid #cce5ff',
+                                fontWeight: 'bold',
+                                fontSize: '12px'
+                              }}>
+                                Entrylevel: {entrylevel}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                      
                       {/* Technical Commentary */}
                       <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
                         <h3 style={{ 
