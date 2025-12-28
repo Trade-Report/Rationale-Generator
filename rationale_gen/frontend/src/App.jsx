@@ -12,9 +12,11 @@ import {
   FiCheckCircle,
   FiClock,
   FiMoon,
-  FiSun
+  FiSun,
+  FiDownload
 } from 'react-icons/fi'
 import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
 import './App.css'
 
 function App() {
@@ -35,6 +37,30 @@ function App() {
   const [showImageModal, setShowImageModal] = useState(false)
   const [gettingRationale, setGettingRationale] = useState(false)
   const [rationaleResult, setRationaleResult] = useState(null)
+  const [raName, setRaName] = useState(() => {
+    const saved = localStorage.getItem('raName')
+    return saved || ''
+  })
+  const [sebiRegistration, setSebiRegistration] = useState(() => {
+    const saved = localStorage.getItem('sebiRegistration')
+    return saved || ''
+  })
+  const [footerContact, setFooterContact] = useState(() => {
+    const saved = localStorage.getItem('footerContact')
+    return saved || ''
+  })
+  const [footerAddress, setFooterAddress] = useState(() => {
+    const saved = localStorage.getItem('footerAddress')
+    return saved || ''
+  })
+  const [footerBackgroundColor, setFooterBackgroundColor] = useState(() => {
+    const saved = localStorage.getItem('footerBackgroundColor')
+    return saved || '#f5f5f5'
+  })
+  const [pdfDisclaimer, setPdfDisclaimer] = useState(() => {
+    const saved = localStorage.getItem('pdfDisclaimer')
+    return saved || ''
+  })
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode')
     return saved ? JSON.parse(saved) : false
@@ -294,36 +320,24 @@ function App() {
     setGettingRationale(true)
     setRationaleResult(null)
 
-    try {
-      const formData = new FormData()
-      formData.append('file', imageFile)
-      formData.append('userId', currentUser.id)
+    // Placeholder technical commentary (will be fetched from backend eventually)
+    // Simulate a small delay for UX
+    setTimeout(() => {
+      const placeholderRationale = `This is a placeholder technical commentary that will be fetched from the backend.
 
-      // If Excel file was uploaded, include stock data
-      if (fileInfo && fileInfo.type === 'excel' && selectedStockIndex !== null) {
-        const stockData = excelRows[selectedStockIndex]
-        formData.append('stockData', JSON.stringify(stockData))
-        formData.append('excelFileName', excelFileName)
-      }
+The backend will provide detailed analysis including:
+- Key patterns and trends
+- Potential trading opportunities
+- Risk assessment
+- Trading recommendations
 
-      const response = await fetch('/api/get-rationale', {
-        method: 'POST',
-        body: formData
-      })
+This content will be automatically included in the PDF export when available.`
 
-      const data = await response.json()
-
-      if (response.ok) {
-        setRationaleResult(data.rationale || 'Rationale will be generated here (placeholder)')
-      } else {
-        alert('Error: ' + (data.error || 'Failed to get rationale'))
-      }
-    } catch (error) {
-      console.error('Error getting rationale:', error)
-      alert('Error getting rationale. Please try again.')
-    } finally {
+      setRationaleResult(placeholderRationale)
+      setEditableRationale(placeholderRationale)
+      setShowPreview(true)
       setGettingRationale(false)
-    }
+    }, 500)
   }
 
   // Check if Get Rationale button should be enabled
@@ -341,6 +355,190 @@ function App() {
     }
     
     return false
+  }
+
+  // Helper function to convert hex color to RGB
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 245, g: 245, b: 245 } // Default light gray
+  }
+
+  const exportToPDF = () => {
+    // Use editable rationale if available, otherwise fall back to original
+    const rationaleToExport = editableRationale || rationaleResult
+    if (!rationaleToExport) {
+      alert('Please get a rationale first before exporting to PDF.')
+      return
+    }
+
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 20
+    const headerHeight = 35 // Fixed header height
+    const footerHeight = 40 // Footer height
+    const maxWidth = pageWidth - 2 * margin
+    const availableHeight = pageHeight - headerHeight - footerHeight - margin // Available space for content
+    
+    // Draw Header with fixed space
+    doc.setFillColor(255, 255, 255) // White background
+    doc.rect(0, 0, pageWidth, headerHeight, 'F')
+    
+    // Draw border line below header
+    doc.setDrawColor(200, 200, 200)
+    doc.setLineWidth(0.5)
+    doc.line(0, headerHeight, pageWidth, headerHeight)
+    
+    // Add RA Name (bold, left side)
+    if (raName.trim()) {
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text(raName, margin, 20)
+    }
+    
+    // Add SEBI Registration (right top)
+    if (sebiRegistration.trim()) {
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(100, 100, 100)
+      const sebiText = `SEBI Reg. No: ${sebiRegistration}`
+      const textWidth = doc.getTextWidth(sebiText)
+      doc.text(sebiText, pageWidth - margin - textWidth, 20)
+    }
+    
+    // Prepare all content with type identifiers (excluding header)
+    const contentItems = []
+    
+    // Technical Commentary
+    if (rationaleResult) {
+      contentItems.push({ text: 'Technical Commentary', type: 'section', isBold: true, color: [30, 64, 175] })
+      contentItems.push({ text: rationaleResult, type: 'content', isBold: false, color: [0, 0, 0] })
+    }
+    
+    // Disclaimer
+    if (pdfDisclaimer.trim()) {
+      contentItems.push({ text: 'Disclaimer', type: 'disclaimer-title', isBold: true, color: [0, 0, 0] })
+      contentItems.push({ text: pdfDisclaimer, type: 'disclaimer', isBold: false, color: [128, 128, 128] })
+    }
+    
+    // Start content below header
+    let yPosition = headerHeight + margin
+    
+    // Calculate approximate height needed with default font sizes
+    let approximateHeight = 0
+    const defaultSizes = { section: 12, content: 9, disclaimerTitle: 10, disclaimer: 8 }
+    
+    contentItems.forEach(item => {
+      let fontSize = defaultSizes.content
+      let spacing = 5
+      
+      if (item.type === 'section') {
+        fontSize = defaultSizes.section
+        spacing = 5
+      } else if (item.type === 'disclaimer-title') {
+        fontSize = defaultSizes.disclaimerTitle
+        spacing = 3
+      } else if (item.type === 'disclaimer') {
+        fontSize = defaultSizes.disclaimer
+        spacing = 3
+      }
+      
+      doc.setFontSize(fontSize)
+      const lines = doc.splitTextToSize(item.text, maxWidth)
+      approximateHeight += lines.length * fontSize * 0.5 + spacing
+    })
+    
+    // Calculate scale factor if content exceeds available height
+    let scaleFactor = 1
+    if (approximateHeight > availableHeight) {
+      scaleFactor = availableHeight / approximateHeight
+      scaleFactor = Math.max(0.55, scaleFactor) // Don't go below 55% of original size
+    }
+    
+    // Adjusted font sizes
+    const sizes = {
+      section: Math.max(8, Math.round(defaultSizes.section * scaleFactor)),
+      content: Math.max(6, Math.round(defaultSizes.content * scaleFactor)),
+      disclaimerTitle: Math.max(7, Math.round(defaultSizes.disclaimerTitle * scaleFactor)),
+      disclaimer: Math.max(6, Math.round(defaultSizes.disclaimer * scaleFactor))
+    }
+    
+    // Add all content with adjusted sizes
+    contentItems.forEach((item) => {
+      let fontSize = sizes.content
+      let spacing = 5
+      let color = item.color || [0, 0, 0]
+      
+      if (item.type === 'section') {
+        fontSize = sizes.section
+        spacing = 5
+        color = item.color || [30, 64, 175]
+      } else if (item.type === 'disclaimer-title') {
+        fontSize = sizes.disclaimerTitle
+        spacing = 3
+      } else if (item.type === 'disclaimer') {
+        fontSize = sizes.disclaimer
+        spacing = 3
+      }
+      
+      doc.setFontSize(fontSize)
+      doc.setFont('helvetica', item.isBold ? 'bold' : 'normal')
+      doc.setTextColor(color[0], color[1], color[2])
+      
+      const lines = doc.splitTextToSize(item.text, maxWidth)
+      doc.text(lines, margin, yPosition)
+      yPosition += lines.length * fontSize * 0.5 + spacing
+    })
+    
+    // Draw Footer with background color
+    const footerY = pageHeight - footerHeight
+    const footerColor = hexToRgb(footerBackgroundColor)
+    doc.setFillColor(footerColor.r, footerColor.g, footerColor.b)
+    doc.rect(0, footerY, pageWidth, footerHeight, 'F')
+    
+    // Add border line above footer
+    doc.setDrawColor(200, 200, 200)
+    doc.setLineWidth(0.5)
+    doc.line(0, footerY, pageWidth, footerY)
+    
+    // Add Footer content (Contact first, then Address)
+    let footerYPos = footerY + 10
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    
+    // Contact (first)
+    if (footerContact.trim()) {
+      doc.setTextColor(0, 0, 0)
+      const contactLines = doc.splitTextToSize(footerContact, maxWidth)
+      doc.text(contactLines, margin, footerYPos)
+      footerYPos += contactLines.length * 9 * 0.5 + 5
+    }
+    
+    // Address (last)
+    if (footerAddress.trim()) {
+      doc.setTextColor(60, 60, 60)
+      const addressLines = doc.splitTextToSize(footerAddress, maxWidth)
+      doc.text(addressLines, margin, footerYPos)
+    }
+    
+    // Helper function to convert hex color to RGB
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 245, g: 245, b: 245 } // Default light gray
+    }
+
+    // Save the PDF
+    const fileName = `Technical_Commentary_${new Date().toISOString().split('T')[0]}.pdf`
+    doc.save(fileName)
   }
 
   if (!currentUser) {
@@ -633,24 +831,24 @@ function App() {
               {/* Get Rationale Button */}
               {fileInfo && (
                 <div style={{ marginTop: '1.5rem' }}>
-                  <button
-                    className="btn btn-primary"
+              <button
+                className="btn btn-primary"
                     onClick={getRationale}
                     disabled={!isGetRationaleEnabled() || gettingRationale}
-                  >
+              >
                     {gettingRationale ? (
-                      <>
-                        <FiActivity className="btn-icon spinning" />
+                  <>
+                    <FiActivity className="btn-icon spinning" />
                         Getting Rationale...
-                      </>
-                    ) : (
-                      <>
+                  </>
+                ) : (
+                  <>
                         <FiTrendingUp className="btn-icon" />
                         Get Rationale
-                      </>
-                    )}
-                  </button>
-                  
+                  </>
+                )}
+              </button>
+
                   {fileInfo.type === 'excel' && !isGetRationaleEnabled() && (
                     <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                       Please select a stock from the table and upload its chart image
@@ -662,12 +860,303 @@ function App() {
               {/* Rationale Result */}
               {rationaleResult && (
                 <div className="rationale-result" style={{ marginTop: '2rem', padding: '1.5rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '12px' }}>
-                  <h3>Rationale</h3>
-                  <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', color: 'var(--text-primary)', fontFamily: 'inherit', margin: 0 }}>
-                    {rationaleResult}
-                  </pre>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: 0 }}>Rationale</h3>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => setShowPreview(!showPreview)}
+                      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                    >
+                      {showPreview ? 'Hide Preview' : 'Show Preview & Edit'}
+                    </button>
+                  </div>
+                  {!showPreview && (
+                    <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', color: 'var(--text-primary)', fontFamily: 'inherit', margin: 0 }}>
+                      {rationaleResult}
+                    </pre>
+                  )}
                 </div>
               )}
+
+              {/* PDF Preview Section */}
+              {showPreview && rationaleResult && (
+                <div className="pdf-preview-section" style={{ marginTop: '2rem', padding: '2rem', background: 'var(--surface)', border: '2px solid var(--border)', borderRadius: '16px' }}>
+                  <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>PDF Preview & Editor</h2>
+                  <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                    Preview and edit your PDF content before exporting. Changes will be reflected in the exported PDF.
+                  </p>
+                  
+                  {/* Preview Container - styled to look like PDF */}
+                  <div className="pdf-preview-container" style={{ 
+                    background: '#ffffff', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '8px',
+                    padding: 0,
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    marginBottom: '1.5rem'
+                  }}>
+                    {/* Header Preview */}
+                    <div style={{ 
+                      padding: '1.5rem 2rem', 
+                      borderBottom: '1px solid #ddd',
+                      background: '#ffffff',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      minHeight: '60px'
+                    }}>
+                      <div>
+                        {raName.trim() ? (
+                          <h2 style={{ margin: 0, fontWeight: 'bold', fontSize: '18px', color: '#000' }}>
+                            {raName}
+                          </h2>
+                        ) : (
+                          <span style={{ color: '#999', fontStyle: 'italic' }}>RA Name</span>
+                        )}
+                      </div>
+                      <div>
+                        {sebiRegistration.trim() ? (
+                          <span style={{ fontSize: '12px', color: '#666' }}>
+                            SEBI Reg. No: {sebiRegistration}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#999', fontStyle: 'italic', fontSize: '12px' }}>SEBI Reg. No</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Content Preview */}
+                    <div style={{ padding: '2rem', minHeight: '400px' }}>
+                      {/* Technical Commentary */}
+                      <div style={{ marginBottom: '2rem' }}>
+                        <h3 style={{ 
+                          color: '#1e40af', 
+                          fontSize: '16px', 
+                          fontWeight: 'bold', 
+                          marginBottom: '1rem',
+                          marginTop: 0
+                        }}>
+                          Technical Commentary
+                        </h3>
+                        <textarea
+                          value={editableRationale}
+                          onChange={(e) => setEditableRationale(e.target.value)}
+                          style={{
+                            width: '100%',
+                            minHeight: '200px',
+                            padding: '1rem',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            fontFamily: 'inherit',
+                            lineHeight: '1.6',
+                            resize: 'vertical',
+                            background: '#fafafa'
+                          }}
+                          placeholder="Edit technical commentary here..."
+                        />
+                      </div>
+
+                      {/* Disclaimer */}
+                      {pdfDisclaimer.trim() && (
+                        <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #eee' }}>
+                          <h3 style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 'bold', 
+                            marginBottom: '0.5rem',
+                            marginTop: 0
+                          }}>
+                            Disclaimer
+                          </h3>
+                          <p style={{ 
+                            color: '#666', 
+                            fontSize: '12px', 
+                            lineHeight: '1.6',
+                            margin: 0,
+                            whiteSpace: 'pre-wrap'
+                          }}>
+                            {pdfDisclaimer}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer Preview */}
+                    <div style={{ 
+                      padding: '1.5rem 2rem', 
+                      borderTop: '1px solid #ddd',
+                      background: footerBackgroundColor || '#f5f5f5',
+                      minHeight: '60px',
+                      color: '#000'
+                    }}>
+                      {footerContact.trim() && (
+                        <div style={{ marginBottom: '0.5rem', fontSize: '13px' }}>
+                          {footerContact}
+                        </div>
+                      )}
+                      {footerAddress.trim() && (
+                        <div style={{ fontSize: '12px', color: '#444' }}>
+                          {footerAddress}
+                        </div>
+                      )}
+                      {!footerContact.trim() && !footerAddress.trim() && (
+                        <div style={{ color: '#999', fontStyle: 'italic', fontSize: '12px' }}>
+                          Footer content (Contact & Address)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    className="btn btn-primary"
+                    onClick={exportToPDF}
+                    style={{ marginRight: '1rem' }}
+                  >
+                    <FiDownload className="btn-icon" />
+                    Export PDF
+                  </button>
+                  
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setEditableRationale(rationaleResult)
+                      setShowPreview(false)
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {/* PDF Export Form */}
+              <div className="pdf-export-section" style={{ marginTop: '3rem', padding: '2rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}>
+                <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>PDF Settings</h2>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                  Configure your PDF details below. These settings will be saved and used in all PDF exports. The Technical Commentary will be automatically included from the rationale response.
+                </p>
+                
+                <div className="pdf-form">
+                  <h3 style={{ marginTop: '0', marginBottom: '1rem', color: 'var(--text-primary)' }}>Header Settings</h3>
+                  <div className="form-group">
+                    <label htmlFor="ra-name">Name of RA (Research Analyst)</label>
+                    <input
+                      type="text"
+                      id="ra-name"
+                      value={raName}
+                      onChange={(e) => {
+                        setRaName(e.target.value)
+                        localStorage.setItem('raName', e.target.value)
+                      }}
+                      placeholder="Enter Research Analyst name"
+                      className="form-input"
+                    />
+          </div>
+
+                  <div className="form-group">
+                    <label htmlFor="sebi-registration">SEBI Registration Number</label>
+                    <input
+                      type="text"
+                      id="sebi-registration"
+                      value={sebiRegistration}
+                      onChange={(e) => {
+                        setSebiRegistration(e.target.value)
+                        localStorage.setItem('sebiRegistration', e.target.value)
+                      }}
+                      placeholder="Enter SEBI Registration Number"
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="pdf-disclaimer">Disclaimer</label>
+                    <textarea
+                      id="pdf-disclaimer"
+                      value={pdfDisclaimer}
+                      onChange={(e) => {
+                        setPdfDisclaimer(e.target.value)
+                        localStorage.setItem('pdfDisclaimer', e.target.value)
+                      }}
+                      placeholder="Enter disclaimer text to be included in the PDF"
+                      rows={5}
+                      className="form-textarea"
+                    />
+                  </div>
+
+                  <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Footer Settings</h3>
+                  <div className="form-group">
+                    <label htmlFor="footer-contact">Contact</label>
+                    <textarea
+                      id="footer-contact"
+                      value={footerContact}
+                      onChange={(e) => {
+                        setFooterContact(e.target.value)
+                        localStorage.setItem('footerContact', e.target.value)
+                      }}
+                      placeholder="Enter contact information (will appear first in footer)"
+                      rows={3}
+                      className="form-textarea"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="footer-address">Address</label>
+                    <textarea
+                      id="footer-address"
+                      value={footerAddress}
+                      onChange={(e) => {
+                        setFooterAddress(e.target.value)
+                        localStorage.setItem('footerAddress', e.target.value)
+                      }}
+                      placeholder="Enter address (will appear last in footer)"
+                      rows={3}
+                      className="form-textarea"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="footer-background-color">Footer Background Color</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <input
+                        type="color"
+                        id="footer-background-color"
+                        value={footerBackgroundColor}
+                        onChange={(e) => {
+                          setFooterBackgroundColor(e.target.value)
+                          localStorage.setItem('footerBackgroundColor', e.target.value)
+                        }}
+                        style={{ width: '60px', height: '40px', cursor: 'pointer', border: '1px solid var(--border)', borderRadius: '4px' }}
+                      />
+                      <input
+                        type="text"
+                        value={footerBackgroundColor}
+                        onChange={(e) => {
+                          setFooterBackgroundColor(e.target.value)
+                          localStorage.setItem('footerBackgroundColor', e.target.value)
+                        }}
+                        placeholder="#f5f5f5"
+                        className="form-input"
+                        style={{ flex: 1, maxWidth: '200px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    className="btn btn-primary"
+                    onClick={exportToPDF}
+                    disabled={!rationaleResult}
+                    style={{ marginTop: '1rem' }}
+                  >
+                    <FiDownload className="btn-icon" />
+                    Export PDF
+                  </button>
+                  
+                  {!rationaleResult && (
+                    <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                      Please get a rationale first before exporting to PDF
+                    </p>
+                  )}
+                </div>
+              </div>
 
               {/* Image Upload Modal */}
               {showImageModal && selectedStockIndex !== null && (
