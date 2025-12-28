@@ -86,6 +86,13 @@ function App() {
     }
   }, [darkMode])
 
+  // Initialize editableRationale when rationaleResult is set
+  useEffect(() => {
+    if (rationaleResult && !editableRationale) {
+      setEditableRationale(rationaleResult)
+    }
+  }, [rationaleResult])
+
   // Apply dark mode on initial load
   useEffect(() => {
     if (darkMode) {
@@ -367,7 +374,7 @@ This content will be automatically included in the PDF export when available.`
     } : { r: 245, g: 245, b: 245 } // Default light gray
   }
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     // Use editable rationale if available, otherwise fall back to original
     const rationaleToExport = editableRationale || rationaleResult
     if (!rationaleToExport) {
@@ -414,10 +421,10 @@ This content will be automatically included in the PDF export when available.`
     // Prepare all content with type identifiers (excluding header)
     const contentItems = []
     
-    // Technical Commentary
-    if (rationaleResult) {
+    // Technical Commentary (use editable version if available)
+    if (rationaleToExport) {
       contentItems.push({ text: 'Technical Commentary', type: 'section', isBold: true, color: [30, 64, 175] })
-      contentItems.push({ text: rationaleResult, type: 'content', isBold: false, color: [0, 0, 0] })
+      contentItems.push({ text: rationaleToExport, type: 'content', isBold: false, color: [0, 0, 0] })
     }
     
     // Disclaimer
@@ -432,6 +439,10 @@ This content will be automatically included in the PDF export when available.`
     // Calculate approximate height needed with default font sizes
     let approximateHeight = 0
     const defaultSizes = { section: 12, content: 9, disclaimerTitle: 10, disclaimer: 8 }
+    
+    // Add image height to calculation if image exists
+    const imageHeight = imagePreview ? 70 : 0 // Reserve space for image
+    approximateHeight += imageHeight
     
     contentItems.forEach(item => {
       let fontSize = defaultSizes.content
@@ -469,7 +480,8 @@ This content will be automatically included in the PDF export when available.`
     }
     
     // Add all content with adjusted sizes
-    contentItems.forEach((item) => {
+    let isAfterTechnicalCommentary = false
+    contentItems.forEach((item, index) => {
       let fontSize = sizes.content
       let spacing = 5
       let color = item.color || [0, 0, 0]
@@ -478,6 +490,7 @@ This content will be automatically included in the PDF export when available.`
         fontSize = sizes.section
         spacing = 5
         color = item.color || [30, 64, 175]
+        isAfterTechnicalCommentary = false // Reset flag at section start
       } else if (item.type === 'disclaimer-title') {
         fontSize = sizes.disclaimerTitle
         spacing = 3
@@ -493,6 +506,39 @@ This content will be automatically included in the PDF export when available.`
       const lines = doc.splitTextToSize(item.text, maxWidth)
       doc.text(lines, margin, yPosition)
       yPosition += lines.length * fontSize * 0.5 + spacing
+      
+      // Track if we're after Technical Commentary section
+      if (item.type === 'section' && item.text === 'Technical Commentary') {
+        isAfterTechnicalCommentary = true
+      }
+      
+      // Add image after Technical Commentary content (right after the content item)
+      if (item.type === 'content' && isAfterTechnicalCommentary && imagePreview) {
+        try {
+          // Calculate available space for image
+          const remainingSpace = pageHeight - footerHeight - yPosition - 10
+          const maxImageHeight = Math.max(40, Math.min(80, remainingSpace))
+          
+          // Detect image format from data URL
+          let imageFormat = 'PNG' // default
+          if (imagePreview.startsWith('data:image/')) {
+            const formatMatch = imagePreview.match(/data:image\/(\w+);/)
+            if (formatMatch) {
+              imageFormat = formatMatch[1].toUpperCase()
+              // jsPDF supports JPEG, PNG - convert others
+              if (imageFormat === 'JPG') imageFormat = 'JPEG'
+            }
+          }
+          
+          // Add image - use available width
+          doc.addImage(imagePreview, imageFormat, margin, yPosition, maxWidth, maxImageHeight)
+          yPosition += maxImageHeight + 10
+          isAfterTechnicalCommentary = false // Reset flag after adding image
+    } catch (error) {
+          console.error('Error adding image to PDF:', error)
+          // Continue without image if there's an error
+        }
+      }
     })
     
     // Draw Footer with background color
@@ -956,6 +1002,41 @@ This content will be automatically included in the PDF export when available.`
                           placeholder="Edit technical commentary here..."
                         />
                       </div>
+
+                      {/* Chart Image Preview */}
+                      {imagePreview && (
+                        <div style={{ marginTop: '1.5rem', marginBottom: '2rem' }}>
+                          <h4 style={{ 
+                            fontSize: '14px', 
+                            fontWeight: '600', 
+                            marginBottom: '0.5rem',
+                            marginTop: 0,
+                            color: '#333'
+                          }}>
+                            Chart Image
+                          </h4>
+                          <div style={{ 
+                            border: '1px solid #ddd', 
+                            borderRadius: '4px', 
+                            padding: '0.5rem',
+                            background: '#fafafa',
+                            textAlign: 'center'
+                          }}>
+                            <img 
+                              src={imagePreview} 
+                              alt="Chart preview" 
+                              style={{ 
+                                maxWidth: '100%', 
+                                maxHeight: '150px',
+                                objectFit: 'contain'
+                              }}
+                            />
+                            <p style={{ margin: '0.5rem 0 0 0', fontSize: '12px', color: '#666' }}>
+                              This image will be included in the PDF
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Disclaimer */}
                       {pdfDisclaimer.trim() && (
