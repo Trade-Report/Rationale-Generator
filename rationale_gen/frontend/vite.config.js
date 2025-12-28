@@ -14,7 +14,23 @@ export default defineConfig({
   },
   build: {
     outDir: '../public',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split React and React DOM into a separate chunk
+          'react-vendor': ['react', 'react-dom'],
+          // Split xlsx library into its own chunk
+          'xlsx': ['xlsx'],
+          // Split jsPDF library into its own chunk
+          'jspdf': ['jspdf'],
+          // Split react-icons into its own chunk
+          'react-icons': ['react-icons/fi']
+        }
+      }
+    },
+    // Increase chunk size warning limit to 1000 kB (optional, but manual chunks should fix it)
+    chunkSizeWarningLimit: 1000
   }
 })
 
