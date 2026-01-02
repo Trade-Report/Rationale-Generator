@@ -18,6 +18,41 @@ import {
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import './App.css'
+import {
+  renderHeader,
+  renderTradingDetails,
+  renderTechnicalCommentary,
+  renderChart,
+  renderDisclaimer,
+  renderFooter,
+  getTradingData,
+  extractKeyPoints
+} from './components/pdf'
+
+// Template Configuration - Easy to extend and modify
+export const TEMPLATES = {
+  classic: {
+    id: 'classic',
+    name: 'Template 1',
+    description: 'Template 1',
+    nameColor: { r: 0, g: 0, b: 0 }, // Black
+    nameColorHex: '#000000'
+  },
+  blue: {
+    id: 'blue',
+    name: 'Template 2',
+    description: 'Template 2',
+    nameColor: { r: 30, g: 64, b: 175 }, // Blue #1e40af
+    nameColorHex: '#1e40af'
+  },
+  green: {
+    id: 'green',
+    name: 'Template 3',
+    description: 'Template 3',
+    nameColor: { r: 16, g: 185, b: 129 }, // Green #10b981
+    nameColorHex: '#10b981'
+  }
+}
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
@@ -99,6 +134,10 @@ function App() {
     const saved = localStorage.getItem('darkMode')
     return saved ? JSON.parse(saved) : false
   })
+  const [selectedTemplate, setSelectedTemplate] = useState(() => {
+    const saved = localStorage.getItem('selectedTemplate')
+    return saved || 'classic' // Default to classic template
+  })
 
   useEffect(() => {
     const savedUser = localStorage.getItem('currentUser')
@@ -119,6 +158,11 @@ function App() {
       document.body.classList.remove('dark-mode')
     }
   }, [darkMode])
+
+  // Save selected template to localStorage
+  useEffect(() => {
+    localStorage.setItem('selectedTemplate', selectedTemplate)
+  }, [selectedTemplate])
 
   // Initialize editableRationale when rationaleResult is set
   useEffect(() => {
@@ -552,562 +596,103 @@ function App() {
     return false
   }
 
-  // Helper function to convert hex color to RGB
-  const hexToRgb = (hex) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : { r: 245, g: 245, b: 245 } // Default light gray
-  }
-
   const exportToPDF = async () => {
-    // Use editable rationale if available, otherwise fall back to original
-    const rationaleToExport = editableRationale || rationaleResult
+    const rationaleToExport = editableRationale || rationaleResult;
     if (!rationaleToExport) {
-      alert('Please get a rationale first before exporting to PDF.')
-      return
+      alert('Please get a rationale first before exporting to PDF.');
+      return;
     }
-
-    console.log('Exporting PDF with imagePreview:', imagePreview ? 'available' : 'missing')
-    
-    // Extract Excel row data if available (for TradingName, target1, target2, stoploss, entrylevel)
-    let tradingName = ''
-    let target1 = ''
-    let target2 = ''
-    let stoploss = ''
-    let entrylevel = ''
-    
-    if (fileInfo && fileInfo.type === 'excel' && selectedStockIndex !== null && excelRows[selectedStockIndex]) {
-      const selectedRow = excelRows[selectedStockIndex]
-      // Convert to strings to avoid .trim() errors on numbers
-      const getStringValue = (value) => {
-        if (value === null || value === undefined) return ''
-        return String(value)
-      }
-      tradingName = getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || '')
-      target1 = getStringValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || '')
-      target2 = getStringValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || '')
-      stoploss = getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || '')
-      entrylevel = getStringValue(selectedRow.entrylevel || selectedRow.EntryLevel || selectedRow.entry_level || selectedRow['Entry Level'] || selectedRow['EntryLevel'] || selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || '')
-    }
-
+  
     const doc = new jsPDF()
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
-    const margin = 20
-    
-    // Fixed heights as percentage of page height
-    const headerHeight = pageHeight * 0.10 // 10% of page height
-    const footerHeight = pageHeight * 0.10 // 10% of page height
-    const technicalCommentaryHeight = pageHeight * 0.40 // 40% of page height
-    const imageHeight = pageHeight * 0.10 // 10% of page height
-    const disclaimerHeight = pageHeight * 0.30 // 30% of page height
-    
-    const maxWidth = pageWidth - 2 * margin
-    
-    // Draw Header with background color
-    const headerBgRgb = hexToRgb(headerBackgroundColor)
-    doc.setFillColor(headerBgRgb.r, headerBgRgb.g, headerBgRgb.b)
-    doc.rect(0, 0, pageWidth, headerHeight, 'F')
-    
-    // Add RA Name (font size 30, bold, top left of header)
-    const nameY = headerHeight * 0.25 // Top of header (25% of header height)
-    if (raName.trim()) {
-      // Font size 30
-      let fontSize = 30
-      doc.setFontSize(fontSize)
-      doc.setFont('helvetica', 'bold')
-      let nameWidth = doc.getTextWidth(raName)
-      // Reduce font size only if name is too wide
-      while (nameWidth > pageWidth - 2 * margin - 180 && fontSize > 18) {
-        fontSize -= 1
-        doc.setFontSize(fontSize)
-        nameWidth = doc.getTextWidth(raName)
-      }
-      doc.setTextColor(0, 0, 0)
-      doc.text(raName, margin, nameY)
-    }
-    
-    // Add "OUTLOOK" with green curved background (bottom left of header)
-    const outlookText = 'OUTLOOK'
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'bold')
-    const outlookWidth = doc.getTextWidth(outlookText)
-    const outlookX = margin // Left aligned
-    const outlookY = headerHeight * 0.85 // Bottom of header (85% of header height)
-    const outlookPadding = 5
-    const outlookHeight = 6 // Reduced height
-    
-    // Draw green curved background (rounded rectangle)
-    doc.setFillColor(34, 197, 94) // Green color
-    doc.roundedRect(outlookX - outlookPadding, outlookY - outlookHeight + 1, outlookWidth + 2 * outlookPadding, outlookHeight, 2, 2, 'F')
-    
-    // Add white text on green background
-    doc.setTextColor(255, 255, 255)
-    doc.text(outlookText, outlookX, outlookY)
-    
-    // Add Date (format: "30 NOV 2025" - DD MMM YYYY) with curved background (bottom center)
-    if (headerDate.trim()) {
-      doc.setFontSize(12)
-      doc.setFont('helvetica', 'normal')
-      // Format date if it's in YYYY-MM-DD format (from date input)
-      let displayDate = headerDate
-      if (/^\d{4}-\d{2}-\d{2}$/.test(headerDate)) {
-        const dateObj = new Date(headerDate + 'T00:00:00')
-        const day = dateObj.getDate()
-        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-        const month = months[dateObj.getMonth()]
-        const year = dateObj.getFullYear()
-        displayDate = `Date: ${day} ${month} ${year}`
-      }
-      const dateTextWidth = doc.getTextWidth(displayDate)
-      const dateX = (pageWidth - dateTextWidth) / 2 // Center
-      const dateY = headerHeight * 0.85 // Bottom of header (same as OUTLOOK)
-      const datePadding = 5
-      const dateHeight = 6 // Reduced height
-      
-      // Draw curved background for date (light gray)
-      doc.setFillColor(240, 240, 240)
-      doc.roundedRect(dateX - datePadding, dateY - dateHeight + 1, dateTextWidth + 2 * datePadding, dateHeight, 2, 2, 'F')
-      
-      // Add date text
-      doc.setTextColor(0, 0, 0)
-      doc.text(displayDate, dateX, dateY)
-    }
-    
-    // Add SEBI Registration (right top) - format: "SEBI Registered Research Analyst- INH300008155" - BOLD, smaller font size
-    let rightTopY = headerHeight * 0.15
-    if (sebiRegistration.trim()) {
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(0, 0, 0)
-      const sebiText = `SEBI Registered Research Analyst- ${sebiRegistration}`
-      const textWidth = doc.getTextWidth(sebiText)
-      doc.text(sebiText, pageWidth - margin - textWidth, rightTopY)
-      rightTopY += 8 // Move down for BSE Enlistment
-    }
-    
-    // Add BSE Enlistment Number (right side, below SEBI) - format: "BSE ENLISTMENT NO-5426" - BOLD, smaller font size
-    if (bseEnlistment.trim()) {
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(0, 0, 0)
-      const bseText = `BSE ENLISTMENT NO-${bseEnlistment}`
-      const textWidth = doc.getTextWidth(bseText)
-      doc.text(bseText, pageWidth - margin - textWidth, rightTopY)
-    }
-    
-    // Remove placeholder text from rationale
-    let cleanRationale = rationaleToExport
-    if (cleanRationale) {
-      cleanRationale = cleanRationale.replace(/This content will be automatically included in the PDF export when available\./g, '')
-      cleanRationale = cleanRationale.replace(/This is a placeholder technical commentary that will be fetched from the backend\./g, '')
-      cleanRationale = cleanRationale.replace(/The backend will provide detailed analysis including:/g, '')
-      cleanRationale = cleanRationale.replace(/- Key patterns and trends/g, '')
-      cleanRationale = cleanRationale.replace(/- Potential trading opportunities/g, '')
-      cleanRationale = cleanRationale.replace(/- Risk assessment/g, '')
-      cleanRationale = cleanRationale.replace(/- Trading recommendations/g, '')
-      cleanRationale = cleanRationale.trim()
-    }
-    
-    // Start content positioning with fixed heights
-    let yPosition = headerHeight + margin
-    
-    // Technical Commentary Section (40% of page height, left aligned)
-    if (cleanRationale) {
-      // Technical Commentary Title - "Technical COMMENTORY" (all caps, bold)
-      doc.setFontSize(12)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(0, 0, 0)
-      doc.text('Technical Commentary', margin, yPosition)
-      yPosition += 10
-      
-      // Technical Commentary Content (left aligned, auto-size to fit 40% height)
-      // Note: cleanRationale already has bullet points added from getRationale function
-      const contentStartY = yPosition
-      const contentEndY = headerHeight + technicalCommentaryHeight - margin
-      const availableContentHeight = contentEndY - contentStartY
-      
-      // Start with larger font size (increased from 13 to 16, +3 sizes)
-      let fontSize = 16
-      doc.setFontSize(fontSize)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(0, 0, 0)
-      let lines = doc.splitTextToSize(cleanRationale, maxWidth)
-      let lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
-      let contentHeight = lines.length * lineHeight
-      
-      // If content is short, try to increase font size to use more space
-      if (contentHeight < availableContentHeight * 0.6) {
-        // Content is short - try to use bigger font (max 18, increased from 15)
-        while (contentHeight < availableContentHeight * 0.85 && fontSize < 18) {
-          fontSize += 0.5
-          doc.setFontSize(fontSize)
-          lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
-          lines = doc.splitTextToSize(cleanRationale, maxWidth)
-          contentHeight = lines.length * lineHeight
-        }
-      } else {
-        // Content is long or fits well - reduce font size if it overflows
-        while (contentHeight > availableContentHeight && fontSize > 9) {
-          fontSize -= 0.5
-          doc.setFontSize(fontSize)
-          lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
-          lines = doc.splitTextToSize(cleanRationale, maxWidth)
-          contentHeight = lines.length * lineHeight
-        }
-      }
-      
-      // Render content (left aligned) - bullet points already in cleanRationale
-      lines.forEach(line => {
-        doc.text(line, margin, yPosition)
-        yPosition += lineHeight
-      })
-      
-      // yPosition now points to where the content actually ends (no fixed height forcing)
-      // Don't reset to headerHeight + technicalCommentaryHeight to avoid whitespace
-    }
-    
-    // Add TradingName, Target, Stoploss, and Entrylevel in a single row above image (all with curved backgrounds)
-    if (tradingName.trim() || target1.trim() || target2.trim() || stoploss.trim() || entrylevel.trim()) {
-      const rowY = yPosition + 10
-      const itemPadding = 6
-      const itemHeight = 8
-      const itemSpacing = 10 // Space between items
-      let currentX = margin
-      
-      // Set common font properties
-      doc.setFont('helvetica', 'bold')
-      
-      // 1. TradingName (smaller font size)
-      if (tradingName.trim()) {
-        doc.setFontSize(11) // Reduced from 14
-        const textWidth = doc.getTextWidth(tradingName)
-        const boxWidth = textWidth + 2 * itemPadding
-        
-        // Draw curved background with light blue color
-        doc.setFillColor(230, 240, 255) // Light blue
-        doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
-        
-        // Add text (black on light blue background)
-        doc.setTextColor(0, 0, 0)
-        doc.text(tradingName, currentX + itemPadding, rowY)
-        currentX += boxWidth + itemSpacing
-      }
-      
-      // 2. Target: {target1}-{target2} (with label, only target1 and target2)
-      const targetParts = []
-      if (target1.trim()) targetParts.push(target1)
-      if (target2.trim()) targetParts.push(target2)
-      
-      if (targetParts.length > 0) {
-        doc.setFontSize(10)
-        const concatenatedTargets = targetParts.join('-')
-        const text = `Target: ${concatenatedTargets}`
-        const textWidth = doc.getTextWidth(text)
-        const boxWidth = textWidth + 2 * itemPadding
-        
-        // Draw curved background with light blue color
-        doc.setFillColor(230, 240, 255) // Light blue
-        doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
-        
-        // Add text (black on light blue background)
-        doc.setTextColor(0, 0, 0)
-        doc.text(text, currentX + itemPadding, rowY)
-        currentX += boxWidth + itemSpacing
-      }
-      
-      // 3. Stoploss (with label)
-      if (stoploss.trim()) {
-        doc.setFontSize(10)
-        const text = `Stoploss: ${stoploss}`
-        const textWidth = doc.getTextWidth(text)
-        const boxWidth = textWidth + 2 * itemPadding
-        
-        // Draw curved background with light blue color
-        doc.setFillColor(230, 240, 255) // Light blue
-        doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
-        
-        // Add text (black on light blue background)
-        doc.setTextColor(0, 0, 0)
-        doc.text(text, currentX + itemPadding, rowY)
-        currentX += boxWidth + itemSpacing
-      }
-      
-      // 4. Entrylevel (with label)
-      if (entrylevel.trim()) {
-        doc.setFontSize(10)
-        const text = `Entrylevel: ${entrylevel}`
-        const textWidth = doc.getTextWidth(text)
-        const boxWidth = textWidth + 2 * itemPadding
-        
-        // Draw curved background with light blue color
-        doc.setFillColor(230, 240, 255) // Light blue
-        doc.roundedRect(currentX, rowY - itemHeight + 2, boxWidth, itemHeight, 3, 3, 'F')
-        
-        // Add text (black on light blue background)
-        doc.setTextColor(0, 0, 0)
-        doc.text(text, currentX + itemPadding, rowY)
-      }
-      
-      yPosition = rowY + itemHeight + 8 // Add spacing after the row
-    }
-    
-    // Image (10% height, 30% width, centered horizontally) - Small spacing after the row of items
-    if (imagePreview) {
-      try {
-        const imageY = yPosition + 5 // Small spacing (5pt) after commentary content or targets
-        const imageWidthPercent = 0.30
-        const imageW = pageWidth * imageWidthPercent
-        const imageH = Math.max(40, imageHeight - 10) // Ensure minimum height of 40pt for visibility
-        const imageX = (pageWidth - imageW) / 2 // Center horizontally
-        
-        // Detect image format from data URL
-        let imageFormat = 'PNG'
-        if (imagePreview.startsWith('data:image/')) {
-          const formatMatch = imagePreview.match(/data:image\/(\w+);/)
-          if (formatMatch) {
-            imageFormat = formatMatch[1].toUpperCase()
-            if (imageFormat === 'JPG') imageFormat = 'JPEG'
-            if (imageFormat === 'WEBP') imageFormat = 'PNG' // jsPDF doesn't support WEBP, convert to PNG
-          }
-        }
-        
-        console.log('Adding image to PDF:', { 
-          imageX: imageX.toFixed(2), 
-          imageY: imageY.toFixed(2), 
-          imageW: imageW.toFixed(2), 
-          imageH: imageH.toFixed(2), 
-          imageFormat,
-          imageHeight: imageHeight.toFixed(2),
-          pageHeight: pageHeight.toFixed(2),
-          pageWidth: pageWidth.toFixed(2)
-        })
-        
-        // Add image to PDF (format: addImage(imageData, format, x, y, width, height))
-        doc.addImage(imagePreview, imageFormat, imageX, imageY, imageW, imageH)
-        console.log('Image added successfully to PDF')
-        // Update yPosition to the bottom of the image using actual image height
-        yPosition = imageY + imageH + 5 // Add 5pt spacing after image
-      } catch (error) {
-        console.error('Error adding image to PDF:', error)
-        console.error('Error message:', error.message)
-        console.error('Error stack:', error.stack)
-        console.error('Image preview type:', typeof imagePreview)
-        console.error('Image preview length:', imagePreview ? imagePreview.length : 'null')
-        console.error('Image preview start:', imagePreview ? imagePreview.substring(0, 150) : 'null')
-        // Still reserve space even if image fails
-        yPosition += imageHeight + 5
-      }
-    } else {
-      console.log('No image preview available for PDF export')
-      // Reserve space even if no image, but use actual imageHeight
-      yPosition += imageHeight
-    }
-    
-    // Disclaimer (30% height, left aligned, auto-size font, no title, full width, different font style)
-    if (pdfDisclaimer.trim()) {
-      // yPosition is already positioned after the image with spacing, so start disclaimer directly
-      const disclaimerStartY = yPosition
-      const disclaimerEndY = pageHeight - footerHeight - 20 // Add whitespace below disclaimer (20pt)
-      const availableDisclaimerHeight = disclaimerEndY - disclaimerStartY
-      
-      // Full page width with minimal margin (5pt on each side)
-      const disclaimerMargin = 5
-      const disclaimerWidth = pageWidth - 2 * disclaimerMargin
-      
-      // Start with larger font size and adjust based on content length (increased from 9 to 12, +3 sizes)
-      // If disclaimer is short, use bigger font; if long, use smaller font
-      let disclaimerFontSize = 12
-      doc.setFontSize(disclaimerFontSize)
-      // Use different font style (times/italic for disclaimer)
-      doc.setFont('times', 'italic')
-      doc.setTextColor(100, 100, 100)
-      let disclaimerLines = doc.splitTextToSize(pdfDisclaimer, disclaimerWidth)
-      let lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
-      let disclaimerContentHeight = disclaimerLines.length * lineHeight
-      
-      // Adjust font size to fit available height
-      // If content is short, try to use larger font; if long, reduce font size
-      if (disclaimerContentHeight < availableDisclaimerHeight * 0.5) {
-        // Content is short - try to use bigger font (max 14, increased from 11)
-        while (disclaimerContentHeight < availableDisclaimerHeight * 0.8 && disclaimerFontSize < 14) {
-          disclaimerFontSize += 0.5
-          doc.setFontSize(disclaimerFontSize)
-          lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
-          disclaimerLines = doc.splitTextToSize(pdfDisclaimer, disclaimerWidth)
-          disclaimerContentHeight = disclaimerLines.length * lineHeight
-        }
-      } else {
-        // Content is long - reduce font size to fit
-        while (disclaimerContentHeight > availableDisclaimerHeight && disclaimerFontSize > 8) {
-          disclaimerFontSize -= 0.5
-          doc.setFontSize(disclaimerFontSize)
-          lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
-          disclaimerLines = doc.splitTextToSize(pdfDisclaimer, disclaimerWidth)
-          disclaimerContentHeight = disclaimerLines.length * lineHeight
-        }
-      }
-      
-      // Render disclaimer text (left aligned, full width with minimal margin)
-      let disclaimerY = disclaimerStartY
-      disclaimerLines.forEach(line => {
-        doc.text(line, disclaimerMargin, disclaimerY)
-        disclaimerY += lineHeight
-      })
-    }
-    
-    // Draw Footer with background color
-    const footerY = pageHeight - footerHeight
-    const footerColor = hexToRgb(footerBackgroundColor)
-    doc.setFillColor(footerColor.r, footerColor.g, footerColor.b)
-    doc.rect(0, footerY, pageWidth, footerHeight, 'F')
-    
-    // Add border line above footer
-    doc.setDrawColor(200, 200, 200)
-    doc.setLineWidth(0.5)
-    doc.line(0, footerY, pageWidth, footerY)
-    
-    // Footer content area (left side) with icons
-    const footerContentY = footerY + 10
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(255, 255, 255) // White text for footer
-    
-    let footerContentX = margin
-    let footerContentLineY = footerContentY
-    const iconSize = 6 // Size of icons
-    
-    // Add icons and text for contact, email, website, and address
-    // Icons should be placed in public folder: phone-icon.png, email-icon.png, website-icon.png, location-icon.png
-    try {
-      // Contact with phone icon
-      if (footerContact.trim()) {
-        try {
-          doc.addImage('/phone-icon.png', 'PNG', footerContentX, footerContentLineY - 4, iconSize, iconSize)
-          footerContentX += iconSize + 3
-        } catch (e) {
-          // If icon not found, use text prefix
-          doc.text('Phone: ', footerContentX, footerContentLineY)
-          footerContentX += doc.getTextWidth('Phone: ')
-        }
-        doc.text(footerContact, footerContentX, footerContentLineY)
-        footerContentX += doc.getTextWidth(footerContact) + 15
-      }
-      
-      // Email with email icon
-      if (footerEmail.trim()) {
-        try {
-          doc.addImage('/email-icon.png', 'PNG', footerContentX, footerContentLineY - 4, iconSize, iconSize)
-          footerContentX += iconSize + 3
-        } catch (e) {
-          doc.text('Email: ', footerContentX, footerContentLineY)
-          footerContentX += doc.getTextWidth('Email: ')
-        }
-        doc.text(footerEmail, footerContentX, footerContentLineY)
-        footerContentX += doc.getTextWidth(footerEmail) + 15
-      }
-      
-      // Website with website icon
-      if (footerWebsite.trim()) {
-        try {
-          doc.addImage('/website-icon.png', 'PNG', footerContentX, footerContentLineY - 4, iconSize, iconSize)
-          footerContentX += iconSize + 3
-        } catch (e) {
-          doc.text('Website: ', footerContentX, footerContentLineY)
-          footerContentX += doc.getTextWidth('Website: ')
-        }
-        doc.text(footerWebsite, footerContentX, footerContentLineY)
-      }
-      
-      // Address with location icon (on next line)
-      if (footerAddress.trim()) {
-        footerContentLineY += 12
-        footerContentX = margin
-        try {
-          doc.addImage('/location-icon.png', 'PNG', footerContentX, footerContentLineY - 4, iconSize, iconSize)
-          footerContentX += iconSize + 3
-        } catch (e) {
-          // If icon not found, continue without icon
-        }
-        const addressLines = doc.splitTextToSize(footerAddress, pageWidth - 2 * margin - 15)
-        doc.text(addressLines, footerContentX, footerContentLineY)
-      }
-    } catch (error) {
-      console.error('Error adding footer icons:', error)
-      // Fallback to text-only footer
-      const footerItems = []
-      if (footerContact.trim()) {
-        footerItems.push(`Phone: ${footerContact}`)
-      }
-      if (footerEmail.trim()) {
-        footerItems.push(`Email: ${footerEmail}`)
-      }
-      if (footerWebsite.trim()) {
-        footerItems.push(`Website: ${footerWebsite}`)
-      }
-      const combinedFooterText = footerItems.join(' | ')
-      if (combinedFooterText) {
-        doc.text(combinedFooterText, margin, footerContentY)
-      }
-      if (footerAddress.trim()) {
-        doc.text(footerAddress, margin, footerContentY + 12)
-      }
-    }
-    
-    // Digital Signature (bottom right, right-aligned)
-    if (signature.trim()) {
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(255, 255, 255)
-      
-      // Calculate signature width for right alignment
-      const signatureTextWidth = doc.getTextWidth(signature)
-      const signatureX = pageWidth - margin - signatureTextWidth // Right aligned
-      const signatureY = footerY + footerHeight - 25
-      
-      // Signature name (right-aligned)
-      doc.text(signature, signatureX, signatureY)
-      
-      // "Signature" label (right-aligned)
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'normal')
-      const signatureLabelWidth = doc.getTextWidth('Signature')
-      doc.text('Signature', pageWidth - margin - signatureLabelWidth, signatureY + 8)
-      
-      // Signature date (right-aligned)
-      if (signatureDate.trim()) {
-        let displaySignatureDate = signatureDate
-        if (/^\d{4}-\d{2}-\d{2}$/.test(signatureDate)) {
-          const dateObj = new Date(signatureDate + 'T00:00:00')
-          const day = dateObj.getDate()
-          const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-          const month = months[dateObj.getMonth()]
-          const year = dateObj.getFullYear()
-          displaySignatureDate = `Date: ${day} ${month} ${year}`
-        }
-        doc.setFontSize(7)
-        const dateTextWidth = doc.getTextWidth(displaySignatureDate)
-        doc.text(displaySignatureDate, pageWidth - margin - dateTextWidth, signatureY + 16)
-      }
-    }
-    
-    // Helper function to convert hex color to RGB
-    function hexToRgb(hex) {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-      return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-      } : { r: 245, g: 245, b: 245 } // Default light gray
-    }
+    const margin = 15
+    // Footer height is smaller for template 1 (classic)
+    const footerHeight = selectedTemplate === 'classic' ? 25 : 35
 
-    // Save the PDF
-    const fileName = `Technical_Commentary_${new Date().toISOString().split('T')[0]}.pdf`
+    // Extract trading data from Excel row if available
+    const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
+    
+    // Extract key points from rationale
+    const keyPoints = extractKeyPoints(rationaleToExport)
+    
+    let yPos = 0
+    
+    // 1. Header Section (with Key Points on the right, and image for template 1)
+    yPos = renderHeader(doc, {
+      pageWidth,
+      margin,
+      template: selectedTemplate,
+      tradingData,
+      keyPoints,
+      yPos,
+      raName,
+      sebiRegistration,
+      bseEnlistment,
+      headerDate,
+      imagePreview
+    })
+    
+    // 2. Trading Details Row (Entry, Targets, Stoploss)
+    yPos = renderTradingDetails(doc, {
+      pageWidth,
+      margin,
+      tradingData,
+      yPos
+    })
+    
+    // 3. Chart Image Section (just above technical commentary, skip for template 1 as it's in header)
+    if (selectedTemplate !== 'classic') {
+      yPos = renderChart(doc, {
+        pageWidth,
+        margin,
+        imagePreview,
+        yPos
+      })
+    }
+    
+    // 4. Technical Commentary Section (with dynamic font sizing)
+    yPos = renderTechnicalCommentary(doc, {
+      pageWidth,
+      margin,
+      rationale: rationaleToExport,
+      yPos,
+      pageHeight,
+      footerHeight
+    })
+    
+    // 5. Disclaimer Section
+    yPos = renderDisclaimer(doc, {
+      pageWidth,
+      margin,
+      pdfDisclaimer,
+      yPos,
+      pageHeight,
+      footerHeight
+    })
+    
+    // 6. Footer Section
+    renderFooter(doc, {
+      pageWidth,
+      pageHeight,
+      margin,
+      footerContact,
+      footerEmail,
+      footerWebsite,
+      footerAddress,
+      signature,
+      signatureDate,
+      footerBackgroundColor,
+      raName,
+      footerHeight
+    })
+    
+    // Save PDF
+    const fileName = headerDate 
+      ? `Analysis_${headerDate.replace(/\//g, '-')}.pdf`
+      : `Analysis_${new Date().toISOString().split('T')[0]}.pdf`
     doc.save(fileName)
-  }
+  };
 
   if (!currentUser) {
     return (
@@ -1405,6 +990,47 @@ function App() {
                   <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
                     Preview and edit your PDF content before exporting. Changes will be reflected in the exported PDF.
                   </p>
+
+                  {/* Template Selection Tabs */}
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                      Select Template:
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      {Object.values(TEMPLATES).map((template) => (
+                        <button
+                          key={template.id}
+                          onClick={() => setSelectedTemplate(template.id)}
+                          style={{
+                            padding: '0.75rem 1.5rem',
+                            border: `2px solid ${selectedTemplate === template.id ? template.nameColorHex : 'var(--border)'}`,
+                            borderRadius: '8px',
+                            background: selectedTemplate === template.id ? template.nameColorHex : 'var(--surface)',
+                            color: selectedTemplate === template.id ? '#ffffff' : 'var(--text-primary)',
+                            fontWeight: selectedTemplate === template.id ? 'bold' : 'normal',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            fontSize: '0.9rem'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (selectedTemplate !== template.id) {
+                              e.currentTarget.style.background = 'var(--background)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (selectedTemplate !== template.id) {
+                              e.currentTarget.style.background = 'var(--surface)'
+                            }
+                          }}
+                        >
+                          {template.name}
+                        </button>
+                      ))}
+                    </div>
+                    <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                      {TEMPLATES[selectedTemplate]?.description}
+                    </p>
+                  </div>
                   
                   {/* Preview Container - styled to look like PDF */}
                   <div className="pdf-preview-container" style={{ 
@@ -1425,7 +1051,12 @@ function App() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                           {raName.trim() ? (
-                            <h2 style={{ margin: 0, fontWeight: 'bold', fontSize: '28px', color: '#000' }}>
+                            <h2 style={{ 
+                              margin: 0, 
+                              fontWeight: 'bold', 
+                              fontSize: '28px', 
+                              color: TEMPLATES[selectedTemplate]?.nameColorHex || '#000000' 
+                            }}>
                               {raName}
                             </h2>
                           ) : (
