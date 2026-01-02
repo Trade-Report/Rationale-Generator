@@ -18,9 +18,11 @@ export const renderHeader = (doc, { pageWidth, margin, template, tradingData, ke
   doc.setFillColor(255, 255, 255)
   doc.rect(0, yPos, pageWidth, headerHeight, 'F')
   
-  let currentY = yPos + 8
+  // Render Key Points component first (at the top left)
+  renderKeyPoints(doc, { pageWidth, margin, keyPoints, yPos, headerHeight, template, imagePreview })
   
-  // Render Name component
+  // Render Name component (below Key Points or at right side)
+  let currentY = yPos + 30 // Position below Key Points area
   currentY = renderName(doc, { margin, template, raName, yPos: currentY })
   
   // Render SEBI and BSE Info components (both at top right, SEBI above BSE)
@@ -35,9 +37,6 @@ export const renderHeader = (doc, { pageWidth, margin, template, tradingData, ke
   
   // Render Instrument component
   renderInstrument(doc, { recommendX, recommendY, tradingData })
-  
-  // Render Key Points component (with image for template 1)
-  renderKeyPoints(doc, { pageWidth, margin, keyPoints, yPos, headerHeight, template, imagePreview })
   
   return yPos + headerHeight
 }

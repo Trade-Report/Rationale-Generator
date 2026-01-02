@@ -607,8 +607,8 @@ function App() {
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
     const margin = 15
-    // Footer height is smaller for template 1 (classic)
-    const footerHeight = selectedTemplate === 'classic' ? 25 : 35
+    // Footer height (reduced)
+    const footerHeight = selectedTemplate === 'classic' ? 20 : 25
 
     // Extract trading data from Excel row if available
     const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
@@ -618,7 +618,7 @@ function App() {
     
     let yPos = 0
     
-    // 1. Header Section (with Key Points on the right, and image for template 1)
+    // 1. Header Section
     yPos = renderHeader(doc, {
       pageWidth,
       margin,
@@ -630,26 +630,24 @@ function App() {
       sebiRegistration,
       bseEnlistment,
       headerDate,
-      imagePreview
+      imagePreview: null // Don't pass image to header anymore
     })
     
-    // 2. Trading Details Row (Entry, Targets, Stoploss)
+    // 2. Chart Image Section (below header/name)
+    yPos = renderChart(doc, {
+      pageWidth,
+      margin,
+      imagePreview,
+      yPos
+    })
+    
+    // 3. Trading Details Row (Entry, Targets, Stoploss)
     yPos = renderTradingDetails(doc, {
       pageWidth,
       margin,
       tradingData,
       yPos
     })
-    
-    // 3. Chart Image Section (just above technical commentary, skip for template 1 as it's in header)
-    if (selectedTemplate !== 'classic') {
-      yPos = renderChart(doc, {
-        pageWidth,
-        margin,
-        imagePreview,
-        yPos
-      })
-    }
     
     // 4. Technical Commentary Section (with dynamic font sizing)
     yPos = renderTechnicalCommentary(doc, {
