@@ -475,13 +475,55 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
         endpoint=f"analyze_with_rationale_{plan_type or 'generic'}"
     )
 
-    analysis_points = format_analysis_points(response_text, max_points=6)
+    analysis_points = format_analysis_points(response_text, max_points=8)
+    
+    key_points_prompt = build_key_points_prompt(
+        analysis_points=analysis_points,
+        max_points=6
+    )
+
+    key_points_text, _ = await _call_gemini(
+        prompt=key_points_prompt,
+        image_base64="",              
+        mime_type="text/plain",
+        endpoint="key_points_summary"
+    )
+
+    key_points = format_analysis_points(
+        raw_text=key_points_text,
+        max_points=4
+    )
 
     return {
         "analysis": analysis_points,
+        "key_points": key_points,
         "usage": usage
     }
 
+def build_key_points_prompt(analysis_points: list[str], max_points: int = 4) -> str:
+    joined_analysis = "\n".join(f"- {p}" for p in analysis_points)
+
+    return f"""
+You are a professional market analyst creating a quick trader takeaway.
+
+Below are detailed analysis points from a technical market note.
+Your task is to condense them into brief, high-signal key points.
+
+ANALYSIS POINTS:
+{joined_analysis}
+
+KEY POINT RULES:
+- Write concise takeaways, not explanations
+- Each key point must be a short, clear sentence
+- Focus only on the strongest insights (trend, momentum, structure, risk)
+- Do NOT repeat similar ideas
+- Do NOT add new analysis
+- Do NOT use markdown, bullets, numbering, or symbols
+- Maximum {max_points} key points only
+- Keep language natural and trader-friendly
+
+Return only the key points as separate lines.
+"""
 
 # ===============================
 # IMAGE ONLY
@@ -502,7 +544,12 @@ Avoid formatting or symbols.
         endpoint="analyze_image_only"
     )
 
-    analysis_points = format_analysis_points(response_text, max_points=6)
+    analysis_points = format_analysis_points(response_text, max_points=8)
+    
+    key_points = format_analysis_points(
+        raw_text=analysis_points,
+        max_points=6
+    )
 
     return {
         "analysis": analysis_points,
