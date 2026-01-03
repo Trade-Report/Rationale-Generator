@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  FiUpload, 
-  FiFileText, 
-  FiImage, 
+import {
+  FiUpload,
+  FiFileText,
+  FiImage,
   FiActivity,
   FiLogOut,
   FiUser,
@@ -30,27 +30,32 @@ import {
 } from './components/pdf'
 
 // Template Configuration - Easy to extend and modify
+// componentOrder defines the order of components in the PDF (header and footer are always first/last)
+// Available components: 'chart', 'tradingDetails', 'technicalCommentary', 'disclaimer'
 export const TEMPLATES = {
   classic: {
     id: 'classic',
     name: 'Template 1',
     description: 'Template 1',
     nameColor: { r: 0, g: 0, b: 0 }, // Black
-    nameColorHex: '#000000'
+    nameColorHex: '#000000',
+    componentOrder: ['technicalCommentary', 'tradingDetails', 'chart', 'disclaimer'] // Order for Template 1
   },
   blue: {
     id: 'blue',
     name: 'Template 2',
     description: 'Template 2',
     nameColor: { r: 30, g: 64, b: 175 }, // Blue #1e40af
-    nameColorHex: '#1e40af'
+    nameColorHex: '#1e40af',
+    componentOrder: ['technicalCommentary', 'tradingDetails', 'chart', 'disclaimer'] // Order for Template 2
   },
   green: {
     id: 'green',
     name: 'Template 3',
     description: 'Template 3',
     nameColor: { r: 16, g: 185, b: 129 }, // Green #10b981
-    nameColorHex: '#10b981'
+    nameColorHex: '#10b981',
+    componentOrder: ['technicalCommentary', 'tradingDetails', 'chart', 'disclaimer'] // Order for Template 3
   }
 }
 
@@ -198,7 +203,7 @@ function App() {
   const login = async (e) => {
     e.preventDefault()
     setLoginError('')
-    
+
     try {
       const response = await fetch('/api/login', {
         method: 'POST',
@@ -245,7 +250,7 @@ function App() {
     const ext = filename.toLowerCase().split('.').pop()
     const excelExtensions = ['xlsx', 'xls', 'csv']
     const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
-    
+
     if (excelExtensions.includes(ext)) return 'excel'
     if (imageExtensions.includes(ext)) return 'image'
     return 'unknown'
@@ -261,7 +266,7 @@ function App() {
 
   const formatExcelTime = (timeCell) => {
     if (!timeCell && timeCell !== 0) return ''
-    
+
     // Handle number (Excel time is stored as decimal fraction of 24 hours)
     if (typeof timeCell === 'number') {
       // Excel time: 0.0 = 00:00:00, 0.5 = 12:00:00, 1.0 = 24:00:00
@@ -271,12 +276,12 @@ function App() {
       const s = totalSeconds % 60
       return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
     }
-    
+
     // Handle Date object
     if (timeCell instanceof Date && !isNaN(timeCell)) {
       return `${String(timeCell.getHours()).padStart(2, '0')}:${String(timeCell.getMinutes()).padStart(2, '0')}:${String(timeCell.getSeconds()).padStart(2, '0')}`
     }
-    
+
     // Handle string that might be a time format
     if (typeof timeCell === 'string') {
       // Check if it's already in time format (HH:MM or HH:MM:SS)
@@ -284,24 +289,24 @@ function App() {
         return timeCell.trim()
       }
     }
-    
+
     return String(timeCell)
   }
-  
+
   // Helper function to convert Excel time value to formatted string
   const convertExcelTimeValue = (value, key) => {
     if (value === null || value === undefined || value === '') return value
-    
+
     // Check if the key suggests it's a time column
     const keyLower = key.toString().toLowerCase()
     const isTimeColumn = keyLower.includes('time') || keyLower.includes('hour') || keyLower.includes('timestamp')
-    
+
     if (isTimeColumn) {
       // If it's already a formatted time string, return as is
       if (typeof value === 'string' && /^\d{1,2}:\d{2}(:\d{2})?(\s*(AM|PM))?$/i.test(value.trim())) {
         return value.trim()
       }
-      
+
       // If it's a number (Excel time format), convert it
       if (typeof value === 'number') {
         if (value >= 0 && value < 1) {
@@ -314,13 +319,13 @@ function App() {
           return formatExcelTime(timePart)
         }
       }
-      
+
       // If it's a Date object, format it
       if (value instanceof Date && !isNaN(value)) {
         return formatExcelTime(value)
       }
     }
-    
+
     return value
   }
 
@@ -329,34 +334,34 @@ function App() {
     setExcelFileName(file.name)
     setParsingExcel(true)
     setExcelRows([])
-    
+
     try {
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data, { type: 'array', cellDates: true })
       const sheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[sheetName]
-      
+
       // Convert to JSON - headers inferred
-      const json = XLSX.utils.sheet_to_json(worksheet, { 
+      const json = XLSX.utils.sheet_to_json(worksheet, {
         defval: '',
         raw: true  // Get raw values to properly handle time numbers
       })
-      
+
       // Normalize keys: trim & remove BOM etc, and handle time values
       const normalized = json.map((row) => {
         const out = {}
         Object.keys(row).forEach((k) => {
           const key = k.toString().trim()
           let value = row[k]
-          
+
           // Convert time values to properly formatted strings
           value = convertExcelTimeValue(value, key)
-          
+
           out[key] = value
         })
         return out
       })
-      
+
       setExcelRows(normalized)
     } catch (err) {
       console.error('Excel parse error', err)
@@ -369,7 +374,7 @@ function App() {
 
   const handleFileSelect = async (file) => {
     const fileType = detectFileType(file.name)
-    
+
     if (fileType === 'unknown') {
       alert('Unsupported file type. Please upload Excel or Image files.')
       return
@@ -381,17 +386,17 @@ function App() {
       type: fileType,
       size: (file.size / 1024).toFixed(2)
     })
-    
+
     // Reset previous selections
     setSelectedStockIndex(null)
     setImageFile(null)
     setImagePreview(null)
     setShowImageModal(false)
     setRationaleResult(null)
-    
+
     // Note: File upload tracking will happen when getRationale is called
     // Statistics will be refreshed after successful rationale retrieval
-    
+
     // Parse Excel file if it's an Excel file
     if (fileType === 'excel') {
       handleExcelUpload(file)
@@ -469,26 +474,35 @@ function App() {
 
     try {
       let response
-      
+
       if (fileInfo && fileInfo.type === 'excel') {
         // For Excel files: Call analyze-with-rationale endpoint
         const selectedRow = excelRows[selectedStockIndex]
         // Convert row object to key-value pairs (remove any undefined/null values)
+        // Ensure all values are strings (handle arrays, objects, etc.)
         const tradeData = {}
         Object.keys(selectedRow).forEach(key => {
-          if (selectedRow[key] !== null && selectedRow[key] !== undefined && selectedRow[key] !== '') {
-            tradeData[key] = String(selectedRow[key])
+          const value = selectedRow[key]
+          if (value !== null && value !== undefined && value !== '') {
+            // Convert to string, handling arrays and objects properly
+            if (Array.isArray(value)) {
+              tradeData[key] = value.join(', ') // Join array elements with comma
+            } else if (typeof value === 'object') {
+              tradeData[key] = JSON.stringify(value) // Stringify objects
+            } else {
+              tradeData[key] = String(value) // Convert primitives to string
+            }
           }
         })
 
-    const formData = new FormData()
+        const formData = new FormData()
         formData.append('trade_data', JSON.stringify(tradeData))
         formData.append('image', imageFile)
 
         response = await fetch('http://127.0.0.1:8000/gemini/analyze-with-rationale', {
-        method: 'POST',
-        body: formData
-      })
+          method: 'POST',
+          body: formData
+        })
       } else {
         // For image-only: Call analyze-image-only endpoint
         const formData = new FormData()
@@ -507,20 +521,28 @@ function App() {
 
       const data = await response.json()
       console.log('Backend response:', data) // Debug log
-      
+
       // Extract technical commentary from response
-      // For analyze-with-rationale: data.output = {analysis: string, usage: object}
-      // For analyze-image-only: data.output is a tuple (response_text, usage_log) which becomes an array [response_text, usage_log] in JSON
+      // For analyze-with-rationale: data.output = {analysis: list[str] | string, key_points: list[str], usage: object}
+      // For analyze-image-only: data.output = {analysis: list[str], usage: object}
       let technicalCommentary = ''
-      
+      console.log('Backend response:', data) // Debug log
       if (data.output) {
-        // Case 1: analyze-with-rationale returns {analysis: string, usage: object}
+        // Case 1: analyze-with-rationale or analyze-image-only returns {analysis: list[str] | string, ...}
         if (data.output.analysis) {
-          technicalCommentary = typeof data.output.analysis === 'string' 
-            ? data.output.analysis 
-            : String(data.output.analysis)
+          console.log('Analysis:', data.output.analysis)
+          // Handle both list and string formats
+          if (Array.isArray(data.output.analysis)) {
+            // Join array of strings with newlines
+            technicalCommentary = data.output.analysis.join('\n')
+          } else {
+            // Already a string
+            technicalCommentary = typeof data.output.analysis === 'string'
+              ? data.output.analysis
+              : String(data.output.analysis)
+          }
         }
-        // Case 2: analyze-image-only returns tuple as array [response_text, usage_log]
+        // Case 2: analyze-image-only returns tuple as array [response_text, usage_log] (legacy format)
         else if (Array.isArray(data.output) && data.output.length > 0) {
           technicalCommentary = typeof data.output[0] === 'string' ? data.output[0] : String(data.output[0])
         }
@@ -535,7 +557,7 @@ function App() {
           technicalCommentary = data.output.result
         } else if (data.output.content) {
           technicalCommentary = data.output.content
-      } else {
+        } else {
           console.error('Unexpected output structure:', data.output)
           technicalCommentary = 'Unable to extract analysis from response. Please check console for details.'
         }
@@ -543,7 +565,7 @@ function App() {
         console.error('No output field in response:', data)
         technicalCommentary = 'No analysis result returned from the backend.'
       }
-      
+
       console.log('Extracted technicalCommentary length:', technicalCommentary.length, 'First 100 chars:', technicalCommentary.substring(0, 100))
 
       // Convert newlines to bullet points (only process the analysis content)
@@ -563,7 +585,7 @@ function App() {
       setEditableRationale(technicalCommentary)
       setShowPreview(true)
       setGettingRationale(false)
-      
+
       // Refresh usage statistics after successful file processing
       if (currentUser && currentUser.id) {
         loadUsage(currentUser.id)
@@ -582,94 +604,140 @@ function App() {
   // Check if Get Rationale button should be enabled
   const isGetRationaleEnabled = () => {
     if (!fileInfo || !currentUser) return false
-    
+
     // For Excel files: need stock selected and image uploaded
     if (fileInfo.type === 'excel') {
       return selectedStockIndex !== null && imageFile !== null
     }
-    
+
     // For image files: just need image uploaded
     if (fileInfo.type === 'image') {
       return imageFile !== null
     }
-    
+
     return false
   }
 
-  const exportToPDF = async () => {
-    const rationaleToExport = editableRationale || rationaleResult;
-    if (!rationaleToExport) {
-      alert('Please get a rationale first before exporting to PDF.');
-      return;
-    }
-  
-    const doc = new jsPDF()
+  // Generate random technical commentary
+  const generateRandomTechnicalCommentary = () => {
+    const commentaries = [
+      `• PHILLIPS CARBON BL is showing a strong recovery trend from its lows, with price action clearly above key moving averages.
+• The stock is currently in a tight consolidation phase, forming a potential continuation pattern after a significant upward move.
+• This consolidation is occurring just beneath the immediate resistance level of 210.40, indicating a potential build-up for a breakout.
+• Both the short-term and longer-term moving averages are trending upwards, with the current price trading comfortably above them, confirming momentum.
+• The shorter-term moving average is providing dynamic support, positioned closely below the current price consolidation, reinforcing bullish structure.`,
+    ]
+    return commentaries[Math.floor(Math.random() * commentaries.length)]
+  }
+
+  // Generate random key points
+  const generateRandomKeyPoints = () => {
+    const macdOptions = [
+      'MACD: Bullish crossover with histogram expanding, indicating strong upward momentum.',
+      'MACD: Bearish crossover with histogram turning red, indicating momentum shift in favor of sellers.',
+      'MACD: Signal line crossover above zero line suggests potential bullish reversal.',
+      'MACD: Convergence of MACD line and signal line indicates potential trend change.',
+      'MACD: Positive divergence forming, suggesting underlying strength despite price weakness.'
+    ]
+
+    const rsiOptions = [
+      'RSI: Gradual decline from overbought territory, showing reduced buying strength and potential for further downside.',
+      'RSI: Strong upward movement from oversold levels indicates buying momentum building.',
+      'RSI: Holding above 50 level suggests underlying bullish momentum remains intact.',
+      'RSI: Divergence pattern forming between price and indicator, warning of potential reversal.',
+      'RSI: Currently in neutral zone, indicating balanced supply and demand forces.'
+    ]
+
+    return [
+      macdOptions[Math.floor(Math.random() * macdOptions.length)],
+      rsiOptions[Math.floor(Math.random() * rsiOptions.length)]
+    ]
+  }
+
+  // Export PDF with random content
+  const exportPDFWithRandomContent = async () => {
+    const randomTechnicalCommentary = generateRandomTechnicalCommentary()
+    const randomKeyPoints = generateRandomKeyPoints()
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [297, 297] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
     const margin = 15
-    // Footer height (reduced)
     const footerHeight = selectedTemplate === 'classic' ? 20 : 25
 
     // Extract trading data from Excel row if available
     const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
-    
-    // Extract key points from rationale
-    const keyPoints = extractKeyPoints(rationaleToExport)
-    
+
     let yPos = 0
-    
-    // 1. Header Section
+
+    // Get template configuration for component order
+    const templateConfig = TEMPLATES[selectedTemplate] || TEMPLATES.classic
+    const componentOrder = templateConfig.componentOrder || ['chart', 'tradingDetails', 'technicalCommentary', 'disclaimer']
+
+    // 1. Header Section (always first) - with random key points
     yPos = renderHeader(doc, {
       pageWidth,
       margin,
       template: selectedTemplate,
       tradingData,
-      keyPoints,
+      keyPoints: randomKeyPoints,
       yPos,
       raName,
       sebiRegistration,
       bseEnlistment,
       headerDate,
-      imagePreview: null // Don't pass image to header anymore
+      imagePreview: null
     })
-    
-    // 2. Chart Image Section (below header/name)
-    yPos = renderChart(doc, {
-      pageWidth,
-      margin,
-      imagePreview,
-      yPos
+
+    // 2. Render components in the order specified by the template
+    componentOrder.forEach((componentType) => {
+      switch (componentType) {
+        case 'chart':
+          yPos = renderChart(doc, {
+            pageWidth,
+            margin,
+            imagePreview,
+            yPos
+          })
+          break
+
+        case 'tradingDetails':
+          yPos = renderTradingDetails(doc, {
+            pageWidth,
+            margin,
+            tradingData,
+            yPos
+          })
+          break
+
+        case 'technicalCommentary':
+          yPos = renderTechnicalCommentary(doc, {
+            pageWidth,
+            margin,
+            rationale: randomTechnicalCommentary,
+            yPos,
+            pageHeight,
+            footerHeight
+          })
+          break
+
+        case 'disclaimer':
+          yPos = renderDisclaimer(doc, {
+            pageWidth,
+            margin,
+            pdfDisclaimer,
+            yPos,
+            pageHeight,
+            footerHeight
+          })
+          break
+
+        default:
+          console.warn(`Unknown component type: ${componentType}`)
+      }
     })
-    
-    // 3. Trading Details Row (Entry, Targets, Stoploss)
-    yPos = renderTradingDetails(doc, {
-      pageWidth,
-      margin,
-      tradingData,
-      yPos
-    })
-    
-    // 4. Technical Commentary Section (with dynamic font sizing)
-    yPos = renderTechnicalCommentary(doc, {
-      pageWidth,
-      margin,
-      rationale: rationaleToExport,
-      yPos,
-      pageHeight,
-      footerHeight
-    })
-    
-    // 5. Disclaimer Section
-    yPos = renderDisclaimer(doc, {
-      pageWidth,
-      margin,
-      pdfDisclaimer,
-      yPos,
-      pageHeight,
-      footerHeight
-    })
-    
-    // 6. Footer Section
+
+    // 3. Footer Section (always last)
     renderFooter(doc, {
       pageWidth,
       pageHeight,
@@ -684,9 +752,121 @@ function App() {
       raName,
       footerHeight
     })
-    
+
     // Save PDF
-    const fileName = headerDate 
+    const fileName = headerDate
+      ? `Analysis_${headerDate.replace(/\//g, '-')}.pdf`
+      : `Analysis_${new Date().toISOString().split('T')[0]}.pdf`
+    doc.save(fileName)
+  }
+
+  const exportToPDF = async () => {
+    const rationaleToExport = editableRationale || rationaleResult;
+    if (!rationaleToExport) {
+      alert('Please get a rationale first before exporting to PDF.');
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [297, 297] })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 15
+    // Footer height (reduced)
+    const footerHeight = selectedTemplate === 'classic' ? 20 : 25
+
+    // Extract trading data from Excel row if available
+    const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
+
+    // Extract key points from rationale
+    const keyPoints = extractKeyPoints(rationaleToExport)
+
+    let yPos = 0
+
+    // Get template configuration for component order
+    const templateConfig = TEMPLATES[selectedTemplate] || TEMPLATES.classic
+    const componentOrder = templateConfig.componentOrder || ['chart', 'tradingDetails', 'technicalCommentary', 'disclaimer']
+
+    // 1. Header Section (always first)
+    yPos = renderHeader(doc, {
+      pageWidth,
+      margin,
+      template: selectedTemplate,
+      tradingData,
+      keyPoints,
+      yPos,
+      raName,
+      sebiRegistration,
+      bseEnlistment,
+      headerDate,
+      imagePreview: null // Don't pass image to header anymore
+    })
+
+    // 2. Render components in the order specified by the template
+    componentOrder.forEach((componentType) => {
+      switch (componentType) {
+        case 'chart':
+          yPos = renderChart(doc, {
+            pageWidth,
+            margin,
+            imagePreview,
+            yPos
+          })
+          break
+
+        case 'tradingDetails':
+          yPos = renderTradingDetails(doc, {
+            pageWidth,
+            margin,
+            tradingData,
+            yPos
+          })
+          break
+
+        case 'technicalCommentary':
+          yPos = renderTechnicalCommentary(doc, {
+            pageWidth,
+            margin,
+            rationale: rationaleToExport,
+            yPos,
+            pageHeight,
+            footerHeight
+          })
+          break
+
+        case 'disclaimer':
+          yPos = renderDisclaimer(doc, {
+            pageWidth,
+            margin,
+            pdfDisclaimer,
+            yPos,
+            pageHeight,
+            footerHeight
+          })
+          break
+
+        default:
+          console.warn(`Unknown component type: ${componentType}`)
+      }
+    })
+
+    // 3. Footer Section (always last)
+    renderFooter(doc, {
+      pageWidth,
+      pageHeight,
+      margin,
+      footerContact,
+      footerEmail,
+      footerWebsite,
+      footerAddress,
+      signature,
+      signatureDate,
+      footerBackgroundColor,
+      raName,
+      footerHeight
+    })
+
+    // Save PDF
+    const fileName = headerDate
       ? `Analysis_${headerDate.replace(/\//g, '-')}.pdf`
       : `Analysis_${new Date().toISOString().split('T')[0]}.pdf`
     doc.save(fileName)
@@ -696,8 +876,8 @@ function App() {
     return (
       <div className="app">
         <div className="login-container">
-          <button 
-            className="dark-mode-toggle-login" 
+          <button
+            className="dark-mode-toggle-login"
             onClick={toggleDarkMode}
             title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
           >
@@ -766,8 +946,8 @@ function App() {
               <FiInfo className="nav-icon" />
               About Us
             </button>
-            <button 
-              className="nav-link dark-mode-toggle" 
+            <button
+              className="nav-link dark-mode-toggle"
               onClick={toggleDarkMode}
               title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
@@ -858,11 +1038,11 @@ function App() {
                       Parsing Excel file...
                     </div>
                   )}
-                  
+
                   {excelError && (
                     <div className="error-message">{excelError}</div>
                   )}
-                  
+
                   {!parsingExcel && excelRows.length === 0 && !excelError ? (
                     <div className="empty-sheet">No data found in the Excel file.</div>
                   ) : !parsingExcel && excelRows.length > 0 ? (
@@ -880,7 +1060,7 @@ function App() {
                           </thead>
                           <tbody>
                             {excelRows.map((row, idx) => (
-                              <tr 
+                              <tr
                                 key={idx}
                                 className={selectedStockIndex === idx ? 'selected-row' : ''}
                                 onClick={() => handleStockSelect(idx)}
@@ -906,7 +1086,7 @@ function App() {
                       </div>
                     </>
                   ) : null}
-                  
+
                   {!parsingExcel && excelRows.length > 0 && (
                     <div className="excel-prompt" style={{ marginTop: '1rem', padding: '1rem', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px' }}>
                       <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
@@ -922,9 +1102,9 @@ function App() {
                 <div className="image-preview-section" style={{ marginTop: '1.5rem' }}>
                   <h3>Uploaded Image</h3>
                   <div style={{ marginTop: '1rem' }}>
-                    <img 
-                      src={imagePreview} 
-                      alt="Preview" 
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
                       style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid var(--border)' }}
                     />
                   </div>
@@ -933,27 +1113,29 @@ function App() {
 
               {/* Get Rationale Button */}
               {fileInfo && (
-                <div style={{ marginTop: '1.5rem' }}>
-              <button
-                className="btn btn-primary"
+                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
                     onClick={getRationale}
                     disabled={!isGetRationaleEnabled() || gettingRationale}
-              >
+                  >
                     {gettingRationale ? (
-                  <>
-                    <FiActivity className="btn-icon spinning" />
+                      <>
+                        <FiActivity className="btn-icon spinning" />
                         Getting Rationale...
-                  </>
-                ) : (
-                  <>
+                      </>
+                    ) : (
+                      <>
                         <FiTrendingUp className="btn-icon" />
                         Get Rationale
-                  </>
-                )}
-              </button>
+                      </>
+                    )}
+                  </button>
+
+
 
                   {fileInfo.type === 'excel' && !isGetRationaleEnabled() && (
-                    <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                    <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem', width: '100%' }}>
                       Please select a stock from the table and upload its chart image
                     </p>
                   )}
@@ -1029,19 +1211,19 @@ function App() {
                       {TEMPLATES[selectedTemplate]?.description}
                     </p>
                   </div>
-                  
+
                   {/* Preview Container - styled to look like PDF */}
-                  <div className="pdf-preview-container" style={{ 
-                    background: '#ffffff', 
-                    border: '1px solid #ddd', 
+                  <div className="pdf-preview-container" style={{
+                    background: '#ffffff',
+                    border: '1px solid #ddd',
                     borderRadius: '8px',
                     padding: 0,
                     boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                     marginBottom: '1.5rem'
                   }}>
                     {/* Header Preview */}
-                    <div style={{ 
-                      padding: '1.5rem 2rem', 
+                    <div style={{
+                      padding: '1.5rem 2rem',
                       background: headerBackgroundColor || '#ffffff',
                       minHeight: '80px',
                       position: 'relative'
@@ -1049,11 +1231,11 @@ function App() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                           {raName.trim() ? (
-                            <h2 style={{ 
-                              margin: 0, 
-                              fontWeight: 'bold', 
-                              fontSize: '28px', 
-                              color: TEMPLATES[selectedTemplate]?.nameColorHex || '#000000' 
+                            <h2 style={{
+                              margin: 0,
+                              fontWeight: 'bold',
+                              fontSize: '28px',
+                              color: TEMPLATES[selectedTemplate]?.nameColorHex || '#000000'
                             }}>
                               {raName}
                             </h2>
@@ -1061,39 +1243,39 @@ function App() {
                             <span style={{ color: '#999', fontStyle: 'italic' }}>RA Name</span>
                           )}
                         </div>
-                      <div style={{ textAlign: 'right' }}>
-                        {sebiRegistration.trim() && (
-                          <div style={{ fontSize: '11px', color: '#333', marginBottom: '0.25rem' }}>
-                            SEBI Registered Research Analyst- {sebiRegistration}
-                          </div>
-                        )}
-                        {bseEnlistment.trim() && (
-                          <div style={{ fontSize: '11px', color: '#333' }}>
-                            BSE ENLISTMENT NO-{bseEnlistment}
-                          </div>
-                        )}
-                        {!sebiRegistration.trim() && !bseEnlistment.trim() && (
-                          <span style={{ color: '#999', fontStyle: 'italic', fontSize: '12px' }}>SEBI/BSE Reg. No</span>
-                        )}
+                        <div style={{ textAlign: 'right' }}>
+                          {sebiRegistration.trim() && (
+                            <div style={{ fontSize: '11px', color: '#333', marginBottom: '0.25rem' }}>
+                              SEBI Registered Research Analyst- {sebiRegistration}
+                            </div>
+                          )}
+                          {bseEnlistment.trim() && (
+                            <div style={{ fontSize: '11px', color: '#333' }}>
+                              BSE ENLISTMENT NO-{bseEnlistment}
+                            </div>
+                          )}
+                          {!sebiRegistration.trim() && !bseEnlistment.trim() && (
+                            <span style={{ color: '#999', fontStyle: 'italic', fontSize: '12px' }}>SEBI/BSE Reg. No</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                        {headerDate.trim() && (
-                          <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
-                            <span style={{ fontSize: '12px', color: '#333' }}>
-                              {/^\d{4}-\d{2}-\d{2}$/.test(headerDate) 
-                                ? (() => {
-                                    const dateObj = new Date(headerDate + 'T00:00:00')
-                                    const day = dateObj.getDate()
-                                    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-                                    const month = months[dateObj.getMonth()]
-                                    const year = dateObj.getFullYear()
-                                    return `${day} ${month} ${year}`
-                                  })()
-                                : headerDate
-                              }
-                            </span>
-                          </div>
-                        )}
+                      {headerDate.trim() && (
+                        <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+                          <span style={{ fontSize: '12px', color: '#333' }}>
+                            {/^\d{4}-\d{2}-\d{2}$/.test(headerDate)
+                              ? (() => {
+                                const dateObj = new Date(headerDate + 'T00:00:00')
+                                const day = dateObj.getDate()
+                                const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+                                const month = months[dateObj.getMonth()]
+                                const year = dateObj.getFullYear()
+                                return `${day} ${month} ${year}`
+                              })()
+                              : headerDate
+                            }
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Content Preview */}
@@ -1110,17 +1292,17 @@ function App() {
                         const target2 = getStringValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || '')
                         const stoploss = getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || '')
                         const entrylevel = getStringValue(selectedRow.entrylevel || selectedRow.EntryLevel || selectedRow.entry_level || selectedRow['Entry Level'] || selectedRow['EntryLevel'] || selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || '')
-                        
+
                         const targetParts = []
                         if (target1.trim()) targetParts.push(target1)
                         if (target2.trim()) targetParts.push(target2)
                         const targetText = targetParts.length > 0 ? targetParts.join('-') : ''
-                        
+
                         return (
-                          <div style={{ 
-                            marginBottom: '1.5rem', 
-                            padding: '1rem', 
-                            background: '#e6f0ff', 
+                          <div style={{
+                            marginBottom: '1.5rem',
+                            padding: '1rem',
+                            background: '#e6f0ff',
                             borderRadius: '8px',
                             display: 'flex',
                             flexWrap: 'wrap',
@@ -1128,9 +1310,9 @@ function App() {
                             alignItems: 'center'
                           }}>
                             {tradingName.trim() && (
-                              <div style={{ 
-                                padding: '0.5rem 1rem', 
-                                background: '#ffffff', 
+                              <div style={{
+                                padding: '0.5rem 1rem',
+                                background: '#ffffff',
                                 borderRadius: '6px',
                                 border: '1px solid #cce5ff',
                                 fontWeight: 'bold',
@@ -1140,9 +1322,9 @@ function App() {
                               </div>
                             )}
                             {targetText && (
-                              <div style={{ 
-                                padding: '0.5rem 1rem', 
-                                background: '#ffffff', 
+                              <div style={{
+                                padding: '0.5rem 1rem',
+                                background: '#ffffff',
                                 borderRadius: '6px',
                                 border: '1px solid #cce5ff',
                                 fontWeight: 'bold',
@@ -1152,9 +1334,9 @@ function App() {
                               </div>
                             )}
                             {stoploss.trim() && (
-                              <div style={{ 
-                                padding: '0.5rem 1rem', 
-                                background: '#ffffff', 
+                              <div style={{
+                                padding: '0.5rem 1rem',
+                                background: '#ffffff',
                                 borderRadius: '6px',
                                 border: '1px solid #cce5ff',
                                 fontWeight: 'bold',
@@ -1164,9 +1346,9 @@ function App() {
                               </div>
                             )}
                             {entrylevel.trim() && (
-                              <div style={{ 
-                                padding: '0.5rem 1rem', 
-                                background: '#ffffff', 
+                              <div style={{
+                                padding: '0.5rem 1rem',
+                                background: '#ffffff',
                                 borderRadius: '6px',
                                 border: '1px solid #cce5ff',
                                 fontWeight: 'bold',
@@ -1178,13 +1360,13 @@ function App() {
                           </div>
                         )
                       })()}
-                      
+
                       {/* Technical Commentary */}
                       <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                        <h3 style={{ 
-                          color: '#000', 
-                          fontSize: '14px', 
-                          fontWeight: 'bold', 
+                        <h3 style={{
+                          color: '#000',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
                           marginBottom: '1rem',
                           marginTop: 0
                         }}>
@@ -1213,27 +1395,27 @@ function App() {
                       {/* Chart Image Preview */}
                       {imagePreview && (
                         <div style={{ marginTop: '1.5rem', marginBottom: '2rem' }}>
-                          <h4 style={{ 
-                            fontSize: '14px', 
-                            fontWeight: '600', 
+                          <h4 style={{
+                            fontSize: '14px',
+                            fontWeight: '600',
                             marginBottom: '0.5rem',
                             marginTop: 0,
                             color: '#333'
                           }}>
                             Chart Image
                           </h4>
-                          <div style={{ 
-                            border: '1px solid #ddd', 
-                            borderRadius: '4px', 
+                          <div style={{
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
                             padding: '0.5rem',
                             background: '#fafafa',
                             textAlign: 'center'
                           }}>
-                            <img 
-                              src={imagePreview} 
-                              alt="Chart preview" 
-                              style={{ 
-                                maxWidth: '100%', 
+                            <img
+                              src={imagePreview}
+                              alt="Chart preview"
+                              style={{
+                                maxWidth: '100%',
                                 maxHeight: '150px',
                                 objectFit: 'contain'
                               }}
@@ -1248,9 +1430,9 @@ function App() {
                       {/* Disclaimer */}
                       {pdfDisclaimer.trim() && (
                         <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #eee', textAlign: 'left' }}>
-                          <p style={{ 
-                            color: '#666', 
-                            fontSize: '11px', 
+                          <p style={{
+                            color: '#666',
+                            fontSize: '11px',
                             lineHeight: '1.6',
                             margin: 0,
                             whiteSpace: 'pre-wrap'
@@ -1262,8 +1444,8 @@ function App() {
                     </div>
 
                     {/* Footer Preview */}
-                    <div style={{ 
-                      padding: '1.5rem 2rem', 
+                    <div style={{
+                      padding: '1.5rem 2rem',
                       borderTop: '1px solid #ddd',
                       background: footerBackgroundColor || '#f5f5f5',
                       minHeight: '80px',
@@ -1299,7 +1481,7 @@ function App() {
                     <FiDownload className="btn-icon" />
                     Export PDF
                   </button>
-                  
+
                   <button
                     className="btn btn-secondary"
                     onClick={() => {
@@ -1318,7 +1500,7 @@ function App() {
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
                   Configure your PDF details below. These settings will be saved and used in all PDF exports. The Technical Commentary will be automatically included from the rationale response.
                 </p>
-                
+
                 <div className="pdf-form">
                   <h3 style={{ marginTop: '0', marginBottom: '1rem', color: 'var(--text-primary)' }}>Header Settings</h3>
                   <div className="form-group">
@@ -1334,7 +1516,7 @@ function App() {
                       placeholder="Enter Research Analyst name"
                       className="form-input"
                     />
-          </div>
+                  </div>
 
                   <div className="form-group">
                     <label htmlFor="sebi-registration">SEBI Registration Number</label>
@@ -1551,7 +1733,7 @@ function App() {
                     <FiDownload className="btn-icon" />
                     Export PDF
                   </button>
-                  
+
                   {!rationaleResult && (
                     <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                       Please get a rationale first before exporting to PDF
@@ -1566,7 +1748,7 @@ function App() {
                   <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                     <div className="modal-header">
                       <h3>
-                        Upload Chart Image - {excelRows[selectedStockIndex] && 
+                        Upload Chart Image - {excelRows[selectedStockIndex] &&
                           (excelRows[selectedStockIndex].TradingName || `Row ${selectedStockIndex + 1}`)}
                       </h3>
                       <button className="modal-close" onClick={closeImageModal}>
@@ -1624,8 +1806,8 @@ function App() {
                 <section>
                   <h3>Our Mission</h3>
                   <p>
-                    Trading Solution by Vikas is dedicated to providing cutting-edge trading analysis tools 
-                    that help traders make informed decisions. Our platform leverages advanced AI technology 
+                    Trading Solution by Vikas is dedicated to providing cutting-edge trading analysis tools
+                    that help traders make informed decisions. Our platform leverages advanced AI technology
                     to analyze trading data and provide actionable insights.
                   </p>
                 </section>
@@ -1633,8 +1815,8 @@ function App() {
                 <section>
                   <h3>About Vikas</h3>
                   <p>
-                    Vikas is an experienced trader and financial analyst with years of expertise in the trading 
-                    industry. With a deep understanding of market dynamics and technical analysis, Vikas has 
+                    Vikas is an experienced trader and financial analyst with years of expertise in the trading
+                    industry. With a deep understanding of market dynamics and technical analysis, Vikas has
                     developed this platform to democratize access to professional-grade trading analysis tools.
                   </p>
                 </section>
