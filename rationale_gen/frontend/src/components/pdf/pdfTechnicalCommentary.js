@@ -104,14 +104,51 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
       currentY += fontSize * 0.3;
       return;
     }
+
     const parts = parseMarkdownBold(line);
+
+    // Check if line starts with a bullet to calculate indent for wrapping
+    // Standard bullet '•' or similar
+    const isBulletPoint = line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*');
+    const bulletIndent = isBulletPoint ? 10 : 0; // standard indent for wrapped lines
+
     let currentX = x;
-    parts.forEach((part) => {
-      doc.setFont('sans-serif', part.isBold ? 'bold' : 'normal');
-      doc.setFontSize(fontSize);
-      doc.text(part.text, currentX, currentY);
-      currentX += doc.getTextWidth(part.text);
+    const endX = x + maxWidth;
+
+    // Break line into words with their style
+    let words = [];
+    parts.forEach(part => {
+      // Split by spaces but keep them attached or handle normally. 
+      // Simple split by space:
+      const rawWords = part.text.split(/(\s+)/); // Keep delimiters to preserve spacing
+      rawWords.forEach(w => {
+        if (w.length > 0) {
+          words.push({ text: w, isBold: part.isBold });
+        }
+      });
     });
+
+    // Render words with wrapping
+    words.forEach((wordObj, index) => {
+      doc.setFont('sans-serif', wordObj.isBold ? 'bold' : 'normal');
+      doc.setFontSize(fontSize);
+      const wordWidth = doc.getTextWidth(wordObj.text);
+
+      // Check if word fits
+      if (currentX + wordWidth > endX) {
+        // Word doesn't fit, move to next line
+        currentY += lineHeight;
+        currentX = x + bulletIndent; // Indent wrapped line logic
+
+        // If word is just a space, ignore it on new line start (optional but good practice)
+        if (!wordObj.text.trim()) return;
+      }
+
+      doc.text(wordObj.text, currentX, currentY);
+      currentX += wordWidth;
+    });
+
+    // End of paragraph/bullet point
     currentY += lineHeight;
   });
 
