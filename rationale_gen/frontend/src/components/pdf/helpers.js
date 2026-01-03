@@ -39,7 +39,7 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
     target2: getStringValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || ''),
     target3: getStringValue(selectedRow.target3 || selectedRow.Target3 || selectedRow.target_3 || selectedRow['Target 3'] || ''),
     stoploss: getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || ''),
-    recommendation: getStringValue(selectedRow.recommendation || selectedRow.Recommendation || selectedRow['Recommendation'] || selectedRow.action || selectedRow.Action || 'SELL').toUpperCase()
+    recommendation: getStringValue(selectedRow.recommendation || selectedRow.Recommendation || selectedRow['Trade Type'] || selectedRow.action || selectedRow.Action || 'SELL').toUpperCase()
   }
 }
 
@@ -48,17 +48,17 @@ export const extractKeyPoints = (rationale) => {
   // Extract MACD and RSI mentions from rationale if available
   const macdMatch = rationale.match(/MACD[^•\n]*/i)
   const rsiMatch = rationale.match(/RSI[^•\n]*/i)
-  
+
   const keyPoints = []
   if (macdMatch) keyPoints.push(`MACD: ${macdMatch[0].replace(/^MACD[:\s]+/i, '').trim()}`)
   if (rsiMatch) keyPoints.push(`RSI: ${rsiMatch[0].replace(/^RSI[:\s]+/i, '').trim()}`)
-  
+
   // If no specific matches, use generic key points
   if (keyPoints.length === 0) {
     keyPoints.push('MACD: Bearish crossover with histogram turning red, indicating momentum shift in favor of sellers.')
     keyPoints.push('RSI: Gradual decline from overbought territory, showing reduced buying strength and potential for further downside.')
   }
-  
+
   return keyPoints
 }
 
