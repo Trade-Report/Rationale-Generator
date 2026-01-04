@@ -2,7 +2,8 @@ from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from services.gemini_service import (
     analyze_text_and_image,
-    analyze_image_only
+    analyze_image_only,
+    get_prompt_by_plan
 )
 from utils.image import read_image_as_base64
 from utils.sheet_parser import parse_sheet_to_key_value
@@ -46,6 +47,7 @@ async def analyze_with_rationale(
     print(f" Plan Type: {plan_type}")
 
     # Validation is now handled automatically by FastAPI/Pydantic via Enum
+    prompt = get_prompt_by_plan(plan_type, trade_data)
 
     try:
         trade_dict = json.loads(trade_data)

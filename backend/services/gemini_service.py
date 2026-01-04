@@ -554,10 +554,8 @@ Avoid formatting or symbols.
 
     analysis_points = format_analysis_points(response_text, max_points=8)
     
-    key_points = format_analysis_points(
-        raw_text=analysis_points,
-        max_points=6
-    )
+    # Use top points as key points since we don't have a separate summarization step here
+    key_points = analysis_points[:6]
 
     return {
         "analysis": analysis_points,
