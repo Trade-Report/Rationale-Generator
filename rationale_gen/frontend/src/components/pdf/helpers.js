@@ -31,15 +31,20 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
     return String(value).trim()
   }
 
+  // Extract and normalize Plan Type for Enum compatibility (Title Case)
+  const rawPlanType = getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Plan Type'] || 'Equity');
+  const planType = rawPlanType.charAt(0).toUpperCase() + rawPlanType.slice(1).toLowerCase(); // Ensure Title Case (Equity, Commodity, etc.)
+
   return {
-    tradingName: getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || ''),
+    tradingName: getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || selectedRow['Script Name'] || selectedRow.script || ''),
     cmp: getStringValue(selectedRow.CMP || selectedRow.cmp || selectedRow['Current Market Price'] || selectedRow['Current Price'] || ''),
     entrylevel: getStringValue(selectedRow.entrylevel || selectedRow.EntryLevel || selectedRow.entry_level || selectedRow['Entry Level'] || selectedRow['EntryLevel'] || selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || ''),
     target1: getStringValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || ''),
     target2: getStringValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || ''),
     target3: getStringValue(selectedRow.target3 || selectedRow.Target3 || selectedRow.target_3 || selectedRow['Target 3'] || ''),
     stoploss: getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || ''),
-    recommendation: getStringValue(selectedRow.recommendation || selectedRow.Recommendation || selectedRow['Trade Type'] || selectedRow.action || selectedRow.Action || 'OUTLOOK').toUpperCase()
+    recommendation: getStringValue(selectedRow.recommendation || selectedRow.Recommendation || selectedRow['Trade Type'] || selectedRow.action || selectedRow.Action || 'OUTLOOK').toUpperCase(),
+    planType: getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Plan Type'] || 'Equity'),// Add planType to the returned object
   }
 }
 
