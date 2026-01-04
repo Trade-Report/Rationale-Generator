@@ -39,11 +39,11 @@ async def analyze_with_rationale(
 
     # Log request body details
     print("=" * 50)
-    print("📥 Request received for /analyze-with-rationale")
-    print(f"📋 Trade Data (raw): {trade_data}")
-    print(f"📷 Image filename: {image.filename}")
-    print(f"📷 Image content type: {image.content_type}")
-    print(f"📊 Plan Type: {plan_type}")
+    print(" Request received for /analyze-with-rationale")
+    print(f" Trade Data (raw): {trade_data}")
+    print(f" Image filename: {image.filename}")
+    print(f" Image content type: {image.content_type}")
+    print(f" Plan Type: {plan_type}")
 
     # Validation is now handled automatically by FastAPI/Pydantic via Enum
 
@@ -51,11 +51,11 @@ async def analyze_with_rationale(
         trade_dict = json.loads(trade_data)
         if not isinstance(trade_dict, dict):
             raise ValueError
-        print(f"✅ Parsed Trade Data (dict): {json.dumps(trade_dict, indent=2)}")
-        print(f"📝 Trade Data keys: {list(trade_dict.keys())}")
-        print(f"📝 Trade Data values: {list(trade_dict.values())}")
+        print(f" Parsed Trade Data (dict): {json.dumps(trade_dict, indent=2)}")
+        print(f" Trade Data keys: {list(trade_dict.keys())}")
+        print(f" Trade Data values: {list(trade_dict.values())}")
     except Exception as e:
-        print(f"❌ Error parsing trade_data: {str(e)}")
+        print(f" Error parsing trade_data: {str(e)}")
         raise HTTPException(
             status_code=400,
             detail="trade_data must be valid key-value JSON"
@@ -68,17 +68,18 @@ async def analyze_with_rationale(
 
     image_base64 = read_image_as_base64(image)
 
-    print(f"📝 Rationale text (converted from trade_data): {rationale_text[:200]}...")  # Log first 200 chars
-    print(f"🖼️ Image base64 length: {len(image_base64)} characters")
+    print(f" Rationale text (converted from trade_data): {rationale_text[:200]}...")  # Log first 200 chars
+    print(f" Image base64 length: {len(image_base64)} characters")
 
     result = await analyze_text_and_image(
         rationale=rationale_text,
         image_base64=image_base64,
         mime_type=image.content_type,
-        plan_type=plan_type   # None → generic prompt
+        plan_type=plan_type,   
+        user_prompt=prompt
     )
 
-    print(f"✅ Analysis completed successfully")
+    print(f" Analysis completed successfully")
     print("=" * 50)
 
     return {

@@ -427,11 +427,22 @@ async def analyze_text_and_image(
     rationale: str,
     image_base64: str,
     mime_type: str,
-    plan_type: str | None = None
+    plan_type: str | None = None,
+    user_prompt: str | None = None
 ):
     base_prompt = get_prompt_by_plan(plan_type, rationale)
+    user_instruction = ""
+    if user_prompt:
+       user_instruction = f"""
+    IMPORTANT USER INSTRUCTION (HIGHEST PRIORITY):
+    {user_prompt}
+
+    You MUST strongly follow the above instruction while performing the analysis.
+    """
 
     final_prompt = f"""
+    
+{user_instruction}    
 {base_prompt}
 
 You are a professional technical analyst writing a real market note for traders.
@@ -464,9 +475,6 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
 - Maximum 8-9 points only
 - Keep language natural, confident, and trader-focused
 """
-
-
-
 
     response_text, usage = await _call_gemini(
         prompt=final_prompt,
