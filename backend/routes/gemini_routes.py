@@ -21,15 +21,19 @@ def validate_image(image: UploadFile):
             detail="Only PNG, JPEG, WEBP images are allowed"
         )
 
-VALID_PLANS = {"equity", "commodity", "options", "derivatives"}
+from enum import Enum
 
-
+class PlanType(str, Enum):
+    EQUITY = "Equity"
+    COMMODITY = "Commodity"
+    OPTIONS = "Options"
+    DERIVATIVES = "Derivatives"
 
 @router.post("/analyze-with-rationale")
 async def analyze_with_rationale(
     trade_data: str = Form(...),            
     image: UploadFile = File(...),           
-    plan_type: Optional[str] = Form(None)   
+    plan_type: Optional[PlanType] = Form(None)   
 ):
     validate_image(image)
 
@@ -41,12 +45,7 @@ async def analyze_with_rationale(
     print(f"📷 Image content type: {image.content_type}")
     print(f"📊 Plan Type: {plan_type}")
 
-    # Validate plan_type ONLY if provided
-    if plan_type and plan_type not in VALID_PLANS:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid plan type"
-        )
+    # Validation is now handled automatically by FastAPI/Pydantic via Enum
 
     try:
         trade_dict = json.loads(trade_data)
