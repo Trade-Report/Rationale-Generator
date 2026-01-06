@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8081',
+        target: 'https://rationale-generator-2.onrender.com',
         changeOrigin: true
       }
     }

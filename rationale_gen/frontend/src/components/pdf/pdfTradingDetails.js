@@ -13,10 +13,28 @@ export const renderTradingDetails = (doc, { pageWidth, margin, tradingData, yPos
   doc.setFontSize(10)
   doc.setTextColor(0, 0, 0) // Black text on blue background
 
+  if (tradingData.tradingName) {
+    const tradeText = `Trading Name: ${tradingData.tradingName}`
+    const tradeWidth = doc.getTextWidth(tradeText) + 8
+    doc.roundedRect(currentX, boxY, tradeWidth, rowHeight, 1, 1, 'F')
+    doc.text(tradeText, currentX + 4, boxY + 4)
+    currentX += tradeWidth + spacing
+  }
+
+  if (tradingData.planType) {
+    const tradeText = `Plan Type: ${tradingData.planType}`
+    const tradeWidth = doc.getTextWidth(tradeText) + 8
+    doc.setFillColor(200, 220, 255)
+    doc.roundedRect(currentX, boxY, tradeWidth, rowHeight, 1, 1, 'F')
+    doc.text(tradeText, currentX + 4, boxY + 4)
+    currentX += tradeWidth + spacing
+  }
+
   // Entry
   if (tradingData.entrylevel) {
     const entryText = `Entry: ${tradingData.entrylevel}`
     const entryWidth = doc.getTextWidth(entryText) + 8
+    doc.setFillColor(200, 220, 255)
     doc.roundedRect(currentX, boxY, entryWidth, rowHeight, 1, 1, 'F')
     doc.text(entryText, currentX + 4, boxY + 4)
     currentX += entryWidth + spacing

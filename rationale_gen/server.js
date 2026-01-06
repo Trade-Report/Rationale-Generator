@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 8081;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors());
@@ -30,7 +30,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
@@ -58,7 +58,7 @@ function detectFileType(filename) {
   const ext = path.extname(filename).toLowerCase();
   const excelExtensions = ['.xlsx', '.xls', '.csv'];
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
-  
+
   if (excelExtensions.includes(ext)) {
     return 'excel';
   } else if (imageExtensions.includes(ext)) {
@@ -72,7 +72,7 @@ function detectFileType(filename) {
 // User login
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
-  
+
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
   }
@@ -125,7 +125,7 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
     }
 
     const fileType = detectFileType(req.file.originalname);
-    
+
     if (fileType === 'unknown') {
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
@@ -135,7 +135,7 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
     // Update user usage
     const data = readData();
     const user = data.users.find(u => u.id === userId);
-    
+
     if (user) {
       user.usage.totalUploads += 1;
       if (fileType === 'excel') {
@@ -148,7 +148,7 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
 
       // Notify admin panel (optional, for real-time updates)
       try {
-        await axios.post(`http://localhost:8080/api/users/${userId}/usage`, {
+        await axios.post(`https://rationale-generator-2.onrender.com/api/users/${userId}/usage`, {
           fileType: fileType
         });
       } catch (error) {
@@ -171,8 +171,8 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
       fileType: fileType,
       fileName: req.file.originalname,
       analysis: `Analysis for ${fileType === 'excel' ? 'Excel file' : 'Image'}: ${req.file.originalname}\n\n` +
-                `This is a placeholder response. Gemini API integration will be added here.\n\n` +
-                `Prompt: ${analysisPrompt}`,
+        `This is a placeholder response. Gemini API integration will be added here.\n\n` +
+        `Prompt: ${analysisPrompt}`,
       timestamp: new Date().toISOString()
     };
 

@@ -64,7 +64,7 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
   // Calculate content height with current font size
   const calculateHeight = (fontSize) => {
     let height = 0;
-    const lineHeight = fontSize * 0.8;
+    const lineHeight = fontSize * 0.2;
     const textLines = text.split('\n');
 
     doc.setFont('sans-serif', 'normal'); // Standard serif font for body text
@@ -72,7 +72,7 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
 
     textLines.forEach((line) => {
       if (!line.trim()) {
-        height += fontSize * 0.3;
+        height += fontSize * 0.2;
         return;
       }
 
@@ -94,14 +94,13 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
 
   // Now render with the calculated font size and bold support
   let currentY = y;
-  // Reduce line height multiplier for tighter spacing
-  const lineHeight = fontSize * 1.0; // Reduced from 1.2
+  const lineHeight = fontSize * 0.5;
 
   const textLines = text.split('\n');
 
   textLines.forEach((line) => {
     if (!line.trim()) {
-      currentY += fontSize * 0.3;
+      currentY += fontSize * 0.1;
       return;
     }
 
@@ -110,7 +109,7 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
     // Check if line starts with a bullet to calculate indent for wrapping
     // Standard bullet '•' or similar
     const isBulletPoint = line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*');
-    const bulletIndent = isBulletPoint ? 10 : 0; // standard indent for wrapped lines
+    const bulletIndent = isBulletPoint ? 10 : -10; // standard indent for wrapped lines
 
     let currentX = x;
     const endX = x + maxWidth;
@@ -136,9 +135,8 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
 
       // Check if word fits
       if (currentX + wordWidth > endX) {
-        // Word doesn't fit, move to next line
         currentY += lineHeight;
-        currentX = x + bulletIndent; // Indent wrapped line logic
+        currentX = x;
 
         // If word is just a space, ignore it on new line start (optional but good practice)
         if (!wordObj.text.trim()) return;
