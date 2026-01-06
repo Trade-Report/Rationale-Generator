@@ -548,7 +548,7 @@ function App() {
         formData.append('prompt', customPrompt)
         formData.append('plan_type', tradeData['Plan Type'])
 
-        response = await fetch('http://127.0.0.1:8000/gemini/analyze-with-rationale', {
+        response = await fetch('https://rationale-generator-2.onrender.com/gemini/analyze-with-rationale', {
           method: 'POST',
           body: formData
         })
@@ -557,7 +557,7 @@ function App() {
         const formData = new FormData()
         formData.append('image', imageFile)
 
-        response = await fetch('http://127.0.0.1:8000/gemini/analyze-image-only', {
+        response = await fetch('https://rationale-generator-2.onrender.com/gemini/analyze-image-only', {
           method: 'POST',
           body: formData
         })

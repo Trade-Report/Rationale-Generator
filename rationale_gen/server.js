@@ -148,7 +148,7 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
 
       // Notify admin panel (optional, for real-time updates)
       try {
-        await axios.post(`http://localhost:8080/api/users/${userId}/usage`, {
+        await axios.post(`https://rationale-generator-2.onrender.com/api/users/${userId}/usage`, {
           fileType: fileType
         });
       } catch (error) {
