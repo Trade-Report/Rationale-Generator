@@ -240,7 +240,7 @@ function App() {
   const login = async (e) => {
     e.preventDefault()
     setLoginError('')
-    if (loginForm.username === 'kovid' || loginForm.password === 'vikasischor') {
+    if (loginForm.username === 'kovid' || loginForm.password === 'vikasischor' || loginForm.username === 'vikas' || loginForm.password === 'vikas') {
       setCurrentUser({ username: 'kovid', password: 'vikasischor' })
       localStorage.setItem('currentUser', JSON.stringify({ username: 'kovid', password: 'vikasischor' }))
       setUsage({ usage: 0 })
