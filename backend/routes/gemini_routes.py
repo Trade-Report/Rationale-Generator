@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException,Header
 from services.gemini_service import (
     analyze_text_and_image,
     analyze_image_only,
@@ -35,7 +35,9 @@ async def analyze_with_rationale(
     trade_data: str = Form(...),            
     image: UploadFile = File(...),           
     plan_type: Optional[PlanType] = Form(None) ,
-    prompt: Optional[str] = Form(None)  
+    prompt: Optional[str] = Form(None) ,
+    x_gemini_api_key: str = Header(..., alias="X-GEMINI-API-KEY") 
+ 
 ):
     validate_image(image)
     
@@ -61,7 +63,8 @@ async def analyze_with_rationale(
         image_base64=image_base64,
         mime_type=image.content_type,
         plan_type=plan_type,   
-        user_prompt=prompt
+        user_prompt=prompt,
+        api_key=x_gemini_api_key
     )
 
 
@@ -76,7 +79,8 @@ async def analyze_with_rationale(
 # 2)  IMAGE ONLY
 @router.post("/analyze-image-only")
 async def analyze_image(
-    image: UploadFile = File(...)
+    image: UploadFile = File(...),
+    x_gemini_api_key: str = Header(..., alias="X-GEMINI-API-KEY"),
 ):
     validate_image(image)
 
@@ -92,7 +96,8 @@ async def analyze_image(
     try:
         result = await analyze_image_only(
             image_base64=image_base64,
-            mime_type=image.content_type
+            mime_type=image.content_type,
+            api_key=x_gemini_api_key
         )
         print(f"✅ Analysis completed successfully")
         print("=" * 50)

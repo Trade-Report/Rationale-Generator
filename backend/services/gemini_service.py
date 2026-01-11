@@ -272,11 +272,12 @@ async def _call_gemini(
     prompt: str,
     image_base64: str,
     mime_type: str,
+    api_key=str,
     endpoint: str = "unknown"
 ):
     headers = {
         "Content-Type": "application/json",
-        "X-Goog-Api-Key": API_KEY,
+        "X-Goog-Api-Key": api_key,
     }
 
     payload = {
@@ -427,6 +428,7 @@ async def analyze_text_and_image(
     rationale: str,
     image_base64: str,
     mime_type: str,
+    api_key=str,
     plan_type: str | None = None,
     user_prompt: str | None = None
 ):
@@ -480,6 +482,7 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
         prompt=final_prompt,
         image_base64=image_base64,
         mime_type=mime_type,
+        api_key=api_key,
         endpoint=f"analyze_with_rationale_{plan_type or 'generic'}"
     )
 
@@ -536,7 +539,7 @@ Return only the key points as separate lines.
 # ===============================
 # IMAGE ONLY
 # ===============================
-async def analyze_image_only(image_base64: str, mime_type: str):
+async def analyze_image_only(image_base64: str, mime_type: str, api_key=str):
     prompt = """
 You are a professional technical analyst.
 
@@ -549,6 +552,7 @@ Avoid formatting or symbols.
         prompt=prompt,
         image_base64=image_base64,
         mime_type=mime_type,
+        api_key=api_key,
         endpoint="analyze_image_only"
     )
 
