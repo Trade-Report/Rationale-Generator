@@ -349,12 +349,12 @@ function App() {
     const isTimeColumn = keyLower.includes('time') || keyLower.includes('hour') || keyLower.includes('timestamp')
 
     if (isTimeColumn) {
-      // If it's already a formatted time string, return as is
+
       if (typeof value === 'string' && /^\d{1,2}:\d{2}(:\d{2})?(\s*(AM|PM))?$/i.test(value.trim())) {
         return value.trim()
       }
 
-      // If it's a number (Excel time format), convert it
+
       if (typeof value === 'number') {
         if (value >= 0 && value < 1) {
           // Pure time value (0.0 = 00:00:00, 0.5 = 12:00:00)
