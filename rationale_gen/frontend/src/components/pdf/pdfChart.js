@@ -6,9 +6,24 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
 
   try {
     const contentWidth = pageWidth - 2 * margin
-    const chartWidth = contentWidth * 0.5 // 50% width
-    const chartHeight = 60 // Fixed height
-    const gap = 5
+    const gap = 10 // Increased gap for better spacing
+
+    // Detect image properties for aspect ratio
+    const imgProps = doc.getImageProperties(imagePreview)
+    const originalRatio = imgProps.width / imgProps.height
+
+    // Increase chart width to ~65% of page width
+    const chartWidth = contentWidth * 0.65
+
+    // Calculate chart height based on original aspect ratio
+    // But cap it so it doesn't take over the entire page
+    let chartHeight = chartWidth / originalRatio
+
+    // Safety cap for height (e.g., 90mm or ~30% of page height)
+    const maxHeight = 90
+    if (chartHeight > maxHeight) {
+      chartHeight = maxHeight
+    }
 
     // 1. Render Chart (Left Side)
     const imageFormat = imagePreview.startsWith('data:image/png') ? 'PNG' : 'JPEG'
@@ -17,7 +32,7 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
     // 2. Render Key Points (Right Side)
     if (keyPoints && keyPoints.length > 0) {
       const boxX = margin + chartWidth + gap
-      const boxWidth = contentWidth * 0.5 - gap
+      const boxWidth = contentWidth - chartWidth - gap
       const boxHeight = chartHeight
 
       // Blueish background
@@ -35,7 +50,7 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
       let textY = yPos + 12
       const maxTextWidth = boxWidth - 8
 
-      keyPoints.slice(0, 6).forEach((point) => { // Limit to 6 points to fit
+      keyPoints.slice(0, 8).forEach((point) => { // Limit to 8 points to fit the potentially taller box
         const bullet = '• '
         // Clean point text
         const cleanPoint = point.replace(/^\W+/, '')

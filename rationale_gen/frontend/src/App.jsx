@@ -13,7 +13,8 @@ import {
   FiClock,
   FiMoon,
   FiSun,
-  FiDownload
+  FiDownload,
+  FiRefreshCw // Added Refresh Icon
 } from 'react-icons/fi'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
@@ -148,6 +149,9 @@ function App() {
     return saved || 'classic' // Default to classic template
   })
   const [customPrompt, setCustomPrompt] = useState('')
+  const [geminiApiKey, setGeminiApiKey] = useState('') // New state for API Key
+  const [processedRows, setProcessedRows] = useState(new Set()) // Track processed row indices
+  const [autoDownload, setAutoDownload] = useState(false) // Trigger for auto-download
 
   const [emailIconBase64, setEmailIconBase64] = useState(null)
   const [phoneIconBase64, setPhoneIconBase64] = useState(null)
@@ -212,6 +216,14 @@ function App() {
       setEditableRationale(rationaleResult)
     }
   }, [rationaleResult])
+
+  // Auto-download PDF when rationale is ready (triggered by Refresh)
+  useEffect(() => {
+    if (autoDownload && rationaleResult && editableRationale) {
+      exportToPDF()
+      setAutoDownload(false) // Reset trigger
+    }
+  }, [autoDownload, rationaleResult, editableRationale])
 
   // Apply dark mode on initial load
   useEffect(() => {
@@ -495,10 +507,13 @@ function App() {
     }
   }
 
-  const getRationale = async () => {
+  const getRationale = async (index = null, isRefresh = false) => {
+    // Determine which index to use (passed or selected)
+    const targetIndex = index !== null ? index : selectedStockIndex
+
     // For Excel files, require both stock selection and image
     if (fileInfo && fileInfo.type === 'excel') {
-      if (selectedStockIndex === null) {
+      if (targetIndex === null) {
         alert('Please select a stock from the table first.')
         return
       }
@@ -524,7 +539,7 @@ function App() {
 
       if (fileInfo && fileInfo.type === 'excel') {
         // For Excel files: Call analyze-with-rationale endpoint
-        const selectedRow = excelRows[selectedStockIndex]
+        const selectedRow = excelRows[targetIndex]
         // Convert row object to key-value pairs (remove any undefined/null values)
         // Ensure all values are strings (handle arrays, objects, etc.)
         const tradeData = {}
@@ -548,8 +563,11 @@ function App() {
         formData.append('prompt', customPrompt)
         formData.append('plan_type', tradeData['Plan Type'])
 
-        response = await fetch('https://rationale-generator-2.onrender.com/gemini/analyze-with-rationale', {
+        response = await fetch('http://127.0.0.1:8000/gemini/analyze-with-rationale', {
           method: 'POST',
+          headers: {
+            'X-GEMINI-API-KEY': geminiApiKey
+          },
           body: formData
         })
       } else {
@@ -557,8 +575,11 @@ function App() {
         const formData = new FormData()
         formData.append('image', imageFile)
 
-        response = await fetch('https://rationale-generator-2.onrender.com/gemini/analyze-image-only', {
+        response = await fetch('http://127.0.0.1:8000/gemini/analyze-image-only', {
           method: 'POST',
+          headers: {
+            'X-GEMINI-API-KEY': geminiApiKey
+          },
           body: formData
         })
       }
@@ -639,6 +660,36 @@ function App() {
       if (currentUser && currentUser.id) {
         loadUsage(currentUser.id)
       }
+
+      // Mark row as processed
+      if (fileInfo.type === 'excel' && targetIndex !== null) {
+        setProcessedRows(prev => new Set(prev).add(targetIndex))
+
+        // Auto-set Header Date from Expiry Date column
+        const rowData = excelRows[targetIndex]
+        if (rowData) {
+          const expiryKey = Object.keys(rowData).find(k => k.toLowerCase().includes('expiry') || k.toLowerCase().includes('date'))
+          if (expiryKey && rowData[expiryKey]) {
+            const val = rowData[expiryKey]
+            if (val instanceof Date) {
+              setHeaderDate(val.toISOString().split('T')[0])
+            } else {
+              setHeaderDate(String(val))
+            }
+          } else {
+            setHeaderDate(new Date().toISOString().split('T')[0])
+          }
+        }
+      } else {
+        // Default to today for image-only
+        setHeaderDate(new Date().toISOString().split('T')[0])
+      }
+
+      // Trigger auto-download if it's a refresh action
+      if (isRefresh) {
+        setAutoDownload(true)
+      }
+
     } catch (error) {
       console.error('Error getting rationale:', error)
       console.error('Error details:', {
@@ -656,12 +707,12 @@ function App() {
 
     // For Excel files: need stock selected and image uploaded
     if (fileInfo.type === 'excel') {
-      return selectedStockIndex !== null && imageFile !== null
+      return selectedStockIndex !== null && imageFile !== null && geminiApiKey.trim() !== ''
     }
 
     // For image files: just need image uploaded
     if (fileInfo.type === 'image') {
-      return imageFile !== null
+      return imageFile !== null && geminiApiKey.trim() !== ''
     }
 
     return false
@@ -708,11 +759,8 @@ function App() {
     const randomTechnicalCommentary = generateRandomTechnicalCommentary()
     const randomKeyPoints = generateRandomKeyPoints()
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [378, 297] })
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const pageHeight = doc.internal.pageSize.getHeight()
     const margin = 15
-    const footerHeight = selectedTemplate === 'classic' ? 20 : 25
+    const footerHeight = 70 // Increased to accommodate larger icons
 
     // Extract trading data from Excel row if available
     const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
@@ -723,7 +771,32 @@ function App() {
     const templateConfig = TEMPLATES[selectedTemplate] || TEMPLATES.classic
     const componentOrder = templateConfig.componentOrder || ['chart', 'tradingDetails', 'technicalCommentary', 'disclaimer']
 
-    // 1. Header Section (always first) - with random key points
+    // Determine Header Date (Expiry Date or Today)
+    let dateForHeader = ''
+    if (tradingData) {
+      // Look for Expiry Date in tradingData (case insensitive)
+      const expiryKey = Object.keys(tradingData).find(k => k.toLowerCase().includes('expiry') || k.toLowerCase().includes('date'))
+      if (expiryKey && tradingData[expiryKey]) {
+        const val = tradingData[expiryKey]
+        if (val instanceof Date) {
+          dateForHeader = val.toISOString().split('T')[0]
+        } else {
+          dateForHeader = String(val)
+        }
+      }
+    }
+
+    // Fallback to today if empty
+    if (!dateForHeader) {
+      dateForHeader = new Date().toISOString().split('T')[0]
+    }
+
+    // Fixed Height Document
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 500] })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+
+    // 1. Header Section
     yPos = renderHeader(doc, {
       pageWidth,
       margin,
@@ -734,11 +807,11 @@ function App() {
       raName,
       sebiRegistration,
       bseEnlistment,
-      headerDate,
+      headerDate: dateForHeader,
       imagePreview: null
     })
 
-    // 2. Render components in the order specified by the template
+    // 2. Render Components
     componentOrder.forEach((componentType) => {
       switch (componentType) {
         case 'chart':
@@ -746,7 +819,8 @@ function App() {
             pageWidth,
             margin,
             imagePreview,
-            yPos
+            yPos,
+            keyPoints: randomKeyPoints
           })
           break
 
@@ -786,7 +860,7 @@ function App() {
       }
     })
 
-    // 3. Footer Section (always last)
+    // 3. Footer Section
     renderFooter(doc, {
       pageWidth,
       pageHeight,
@@ -830,12 +904,9 @@ function App() {
       return;
     }
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [297, 297] })
-    const pageWidth = doc.internal.pageSize.getWidth()
-    const pageHeight = doc.internal.pageSize.getHeight()
     const margin = 15
-    // Footer height (reduced)
-    const footerHeight = selectedTemplate === 'classic' ? 20 : 25
+    // Footer height (Increased for larger icons)
+    const footerHeight = 70
 
     // Extract trading data from Excel row if available
     const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
@@ -855,7 +926,16 @@ function App() {
     const templateConfig = TEMPLATES[selectedTemplate] || TEMPLATES.classic
     const componentOrder = templateConfig.componentOrder || ['chart', 'tradingDetails', 'technicalCommentary', 'disclaimer']
 
-    // 1. Header Section (always first)
+    // Determine Header Date (User Edited or Default)
+    const dateForHeader = headerDate || new Date().toISOString().split('T')[0]
+
+
+    // Fixed Height Document
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [210, 800] })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+
+    // 1. Header Section
     yPos = renderHeader(doc, {
       pageWidth,
       margin,
@@ -866,11 +946,11 @@ function App() {
       raName,
       sebiRegistration,
       bseEnlistment,
-      headerDate,
-      imagePreview: null // Don't pass image to header anymore
+      headerDate: dateForHeader,
+      imagePreview: null
     })
 
-    // 2. Render components in the order specified by the template
+    // 2. Render Components
     componentOrder.forEach((componentType) => {
       switch (componentType) {
         case 'chart':
@@ -919,7 +999,7 @@ function App() {
       }
     })
 
-    // 3. Footer Section (always last)
+    // 3. Footer Section
     renderFooter(doc, {
       pageWidth,
       pageHeight,
@@ -1128,6 +1208,7 @@ function App() {
                         <table className="sheet-table">
                           <thead>
                             <tr>
+                              <th>Actions</th>
                               <th>#</th>
                               {Object.keys(excelRows[0] || {}).map((key) => (
                                 <th key={key}>{key}</th>
@@ -1135,28 +1216,58 @@ function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {excelRows.map((row, idx) => (
-                              <tr
-                                key={idx}
-                                className={selectedStockIndex === idx ? 'selected-row' : ''}
-                                onClick={() => handleStockSelect(idx)}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                <td>{idx + 1}</td>
-                                {Object.keys(excelRows[0] || {}).map((key) => {
-                                  const value = row[key]
-                                  // Format dates and times
-                                  if (value instanceof Date && !isNaN(value)) {
-                                    const formatted = formatExcelDate(value)
-                                    return <td key={key}>{formatted}</td>
-                                  }
-                                  if (typeof value === 'number' && key.toLowerCase().includes('time')) {
-                                    return <td key={key}>{formatExcelTime(value)}</td>
-                                  }
-                                  return <td key={key}>{value || ''}</td>
-                                })}
-                              </tr>
-                            ))}
+                            {excelRows.map((row, idx) => {
+                              const isProcessed = processedRows.has(idx)
+                              return (
+                                <tr
+                                  key={idx}
+                                  className={selectedStockIndex === idx ? 'selected-row' : ''}
+                                  onClick={() => handleStockSelect(idx)}
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  <td>
+                                    {isProcessed && (
+                                      <button
+                                        className="btn-icon-only"
+                                        title="Refresh & Download PDF"
+                                        onClick={(e) => {
+                                          e.stopPropagation() // Prevent row selection
+                                          // Set selected stock index to this one so the image matches if already uploaded?
+                                          // Actually, we use the imageFile state. If the user changed the stock selection but kept the image, it might be mismatched.
+                                          // But the user workflow implies uploading an image for a selected stock.
+                                          // We should probably select this stock first.
+                                          setSelectedStockIndex(idx)
+                                          getRationale(idx, true)
+                                        }}
+                                        style={{
+                                          padding: '4px',
+                                          borderRadius: '4px',
+                                          border: '1px solid var(--border)',
+                                          background: 'var(--surface)',
+                                          cursor: 'pointer',
+                                          color: 'var(--primary)'
+                                        }}
+                                      >
+                                        <FiRefreshCw />
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td>{idx + 1}</td>
+                                  {Object.keys(excelRows[0] || {}).map((key) => {
+                                    const value = row[key]
+                                    // Format dates and times
+                                    if (value instanceof Date && !isNaN(value)) {
+                                      const formatted = formatExcelDate(value)
+                                      return <td key={key}>{formatted}</td>
+                                    }
+                                    if (typeof value === 'number' && key.toLowerCase().includes('time')) {
+                                      return <td key={key}>{formatExcelTime(value)}</td>
+                                    }
+                                    return <td key={key}>{value || ''}</td>
+                                  })}
+                                </tr>
+                              )
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -1190,9 +1301,28 @@ function App() {
               {/* Get Rationale Button */}
               {fileInfo && (
                 <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+
+                  {/* Gemini API Key Input */}
+                  <div style={{ flexGrow: 1, minWidth: '250px' }}>
+                    <input
+                      type="password"
+                      className="form-control"
+                      placeholder="Enter Gemini API Key (Required)"
+                      value={geminiApiKey}
+                      onChange={(e) => setGeminiApiKey(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        borderRadius: '0.375rem',
+                        border: '1px solid var(--border)',
+                        background: 'var(--background)',
+                        color: 'var(--text-primary)'
+                      }}
+                    />
+                  </div>
                   <button
                     className="btn btn-primary"
-                    onClick={getRationale}
+                    onClick={() => getRationale(null)}
                     disabled={!isGetRationaleEnabled() || gettingRationale}
                   >
                     {gettingRationale ? (
@@ -1266,6 +1396,27 @@ function App() {
                   <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
                     Preview and edit your PDF content before exporting. Changes will be reflected in the exported PDF.
                   </p>
+
+                  {/* Header Date Input */}
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                      Report Date (Header):
+                    </label>
+                    <input
+                      type="date"
+                      value={headerDate}
+                      onChange={(e) => setHeaderDate(e.target.value)}
+                      style={{
+                        padding: '0.75rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--background)',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'inherit',
+                        fontSize: '1rem'
+                      }}
+                    />
+                  </div>
 
                   {/* Template Selection Tabs */}
                   <div style={{ marginBottom: '1.5rem' }}>

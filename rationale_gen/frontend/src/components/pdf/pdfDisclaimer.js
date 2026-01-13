@@ -18,7 +18,7 @@ export const renderDisclaimer = (doc, { pageWidth, margin, pdfDisclaimer, yPos, 
   const disclaimerText = disclaimerBaseText.includes('http') ? disclaimerBaseText : `${disclaimerBaseText}\n\nFor complete disclaimer and disclosure, please refer to: ${disclaimerWebsite}`
 
   // Start with larger font size (was increased by 3 from previous 9, now +2 again)
-  let disclaimerFontSize = 14
+  let disclaimerFontSize = 17
   doc.setFontSize(disclaimerFontSize)
   doc.setFont('times', 'italic')
   doc.setTextColor(0, 0, 0) // Black text for visibility
@@ -27,14 +27,7 @@ export const renderDisclaimer = (doc, { pageWidth, margin, pdfDisclaimer, yPos, 
   let lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
   let contentHeight = disclaimerLines.length * lineHeight
 
-  // Adjust font size to fit available space
-  while (contentHeight > availableHeight && disclaimerFontSize > 6) {
-    disclaimerFontSize -= 0.3
-    doc.setFontSize(disclaimerFontSize)
-    lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
-    disclaimerLines = doc.splitTextToSize(disclaimerText, disclaimerWidth)
-    contentHeight = disclaimerLines.length * lineHeight
-  }
+
 
   doc.text(disclaimerLines, disclaimerMargin, yPos)
 

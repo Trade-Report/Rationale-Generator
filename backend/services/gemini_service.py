@@ -268,11 +268,14 @@ URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generate
 # ===============================
 # Gemini Core Caller
 # ===============================
+# ===============================
+# Gemini Core Caller
+# ===============================
 async def _call_gemini(
     prompt: str,
     image_base64: str,
     mime_type: str,
-    api_key=str,
+    api_key: str,
     endpoint: str = "unknown"
 ):
     headers = {
@@ -428,7 +431,7 @@ async def analyze_text_and_image(
     rationale: str,
     image_base64: str,
     mime_type: str,
-    api_key=str,
+    api_key: str,
     plan_type: str | None = None,
     user_prompt: str | None = None
 ):
@@ -497,6 +500,7 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
         prompt=key_points_prompt,
         image_base64="",              
         mime_type="text/plain",
+        api_key=api_key,
         endpoint="key_points_summary"
     )
 
@@ -539,7 +543,7 @@ Return only the key points as separate lines.
 # ===============================
 # IMAGE ONLY
 # ===============================
-async def analyze_image_only(image_base64: str, mime_type: str, api_key=str):
+async def analyze_image_only(image_base64: str, mime_type: str, api_key: str):
     prompt = """
 You are a professional technical analyst.
 

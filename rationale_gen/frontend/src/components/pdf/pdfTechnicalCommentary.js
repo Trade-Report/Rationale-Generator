@@ -56,8 +56,8 @@ const parseMarkdownBold = (text) => {
 const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) => {
   if (!text) return y;
 
-  // Start with base font size (12pt for body text)
-  let fontSize = 12;
+  // Start with base font size (14pt for body text)
+  let fontSize = 14;
   const minFontSize = 8;
   let contentHeight = 0;
 
@@ -67,7 +67,7 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
     const lineHeight = fontSize * 0.2;
     const textLines = text.split('\n');
 
-    doc.setFont('sans-serif', 'normal'); // Standard serif font for body text
+    doc.setFont('sans-serif', 'bold'); // Standard serif font for body text (bold as requested)
     doc.setFontSize(fontSize);
 
     textLines.forEach((line) => {
@@ -129,7 +129,8 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
 
     // Render words with wrapping
     words.forEach((wordObj, index) => {
-      doc.setFont('sans-serif', wordObj.isBold ? 'bold' : 'normal');
+      // Default to bold, but respect markdown markers if they were used (though now mostly redundant if everything is bold)
+      doc.setFont('sans-serif', 'bold');
       doc.setFontSize(fontSize);
       const wordWidth = doc.getTextWidth(wordObj.text);
 

@@ -11,16 +11,16 @@ export const renderFooter = (doc, { pageWidth, pageHeight, margin, footerContact
   doc.setFillColor(footerBgRgb.r, footerBgRgb.g, footerBgRgb.b)
   doc.rect(0, footerY, pageWidth, footerHeight, 'F')
 
-  let currentY = footerY + 6
+  let currentY = footerY + 10 // Increased top padding
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
+  doc.setFontSize(20) // Increased from 14 to 20
   doc.setTextColor(0, 0, 0)
   const contactParts = []
 
   const addIconText = (text, icon, key) => {
     if (footerImages && footerImages[key]) {
-      const iconSize = 4
-      const iconY = currentY - 3
+      const iconSize = 24 // Increased from 12 to 24
+      const iconY = currentY - 8 // Adjusted for larger icon
       try {
         // Calculate current X position based on what's already in contactParts
         // This is tricky because contactParts is joined by " | ". We need to estimate width.
@@ -34,7 +34,7 @@ export const renderFooter = (doc, { pageWidth, pageHeight, margin, footerContact
         }
 
         doc.addImage(footerImages[key], 'PNG', prefixWidth, iconY, iconSize, iconSize)
-        contactParts.push(`       ${text}`) // Add padding for icon
+        contactParts.push(`          ${text}`) // Reduced padding for tighter gap
       } catch (e) {
         console.error(`Failed to add ${key} icon`, e)
         contactParts.push(`${key === 'address' ? '' : key.charAt(0).toUpperCase() + key.slice(1) + ': '}${text}`)
@@ -61,19 +61,19 @@ export const renderFooter = (doc, { pageWidth, pageHeight, margin, footerContact
 
   if (contactParts.length > 0) {
     doc.text(contactParts.join(' | '), margin, currentY)
-    currentY += 5
+    currentY += 18 // Increased line spacing for larger text
   }
 
   // Address
   if (footerAddress.trim()) {
     const addressKey = 'address'
     if (footerImages && footerImages[addressKey]) {
-      const iconSize = 4
-      const iconY = currentY - 1
+      const iconSize = 24 // Increased from 12 to 24
+      const iconY = currentY - 5
       try {
         doc.addImage(footerImages[addressKey], 'PNG', margin, iconY, iconSize, iconSize)
-        const addressLines = doc.splitTextToSize(`       ${footerAddress}`, pageWidth * 0.6)
-        doc.text(addressLines, margin, currentY + 2) // Adjust Y for text alignment
+        const addressLines = doc.splitTextToSize(`          ${footerAddress}`, pageWidth * 0.6) // Reduced padding
+        doc.text(addressLines, margin, currentY + 3) // Adjust Y for text alignment
       } catch (e) {
         const addressLines = doc.splitTextToSize(`Address: ${footerAddress}`, pageWidth * 0.6)
         doc.text(addressLines, margin, currentY)
@@ -87,14 +87,14 @@ export const renderFooter = (doc, { pageWidth, pageHeight, margin, footerContact
   // Right side - Digital Signature
   const signatureName = signature || raName || 'Signature'
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
+  doc.setFontSize(22) // Increased from 16 to 22
   doc.text('Signature', pageWidth - margin, footerY + 8, { align: 'right' })
-  doc.setFontSize(9)
-  doc.text(signatureName.toUpperCase(), pageWidth - margin, footerY + 15, { align: 'right' })
+  doc.setFontSize(12) // Increased from 9
+  doc.text(signatureName.toUpperCase(), pageWidth - margin, footerY + 16, { align: 'right' })
   if (signatureDate.trim()) {
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
-    doc.text(signatureDate, pageWidth - margin, footerY + 22, { align: 'right' })
+    doc.setFontSize(10) // Increased from 7
+    doc.text(signatureDate, pageWidth - margin, footerY + 24, { align: 'right' })
   }
 }
 
