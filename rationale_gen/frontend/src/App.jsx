@@ -318,7 +318,11 @@ function App() {
   const formatExcelDate = (dateCell) => {
     if (!dateCell) return ''
     if (dateCell instanceof Date && !isNaN(dateCell)) {
-      return dateCell.toDateString()
+      const day = String(dateCell.getDate()).padStart(2, '0')
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const month = months[dateCell.getMonth()]
+      const year = dateCell.getFullYear()
+      return `${day} ${month} ${year}`
     }
     return String(dateCell)
   }
@@ -412,6 +416,19 @@ function App() {
         Object.keys(row).forEach((k) => {
           const key = k.toString().trim()
           let value = row[k]
+
+          // Handle potential date strings that xlsx might have missed or misparsed
+          if (typeof value === 'string' && /^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(value.trim())) {
+            const parts = value.trim().split(/[-/]/)
+            // Assume DD-MM-YYYY format if it's ambiguous, as per user's example
+            const d = parseInt(parts[0], 10)
+            const m = parseInt(parts[1], 10) - 1
+            const y = parseInt(parts[2], 10)
+            const dateObj = new Date(y, m, d)
+            if (!isNaN(dateObj)) {
+              value = dateObj
+            }
+          }
 
           // Convert time values to properly formatted strings
           value = convertExcelTimeValue(value, key)
@@ -563,7 +580,7 @@ function App() {
         formData.append('prompt', customPrompt)
         formData.append('plan_type', tradeData['Plan Type'])
 
-        response = await fetch('http://127.0.0.1:8000/gemini/analyze-with-rationale', {
+        response = await fetch('https://rationale-generator-2.onrender.com/gemini/analyze-with-rationale', {
           method: 'POST',
           headers: {
             'X-GEMINI-API-KEY': geminiApiKey
@@ -575,7 +592,7 @@ function App() {
         const formData = new FormData()
         formData.append('image', imageFile)
 
-        response = await fetch('http://127.0.0.1:8000/gemini/analyze-image-only', {
+        response = await fetch('https://rationale-generator-2.onrender.com/gemini/analyze-image-only', {
           method: 'POST',
           headers: {
             'X-GEMINI-API-KEY': geminiApiKey
