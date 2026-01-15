@@ -400,39 +400,26 @@ function App() {
 
     try {
       const data = await file.arrayBuffer()
-      const workbook = XLSX.read(data, { type: 'array', cellDates: true })
+      const workbook = XLSX.read(data, { type: 'array', cellDates: false, raw: false })
       const sheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[sheetName]
 
       // Convert to JSON - headers inferred
+      // Use raw: false to get formatted strings (dates will be in their original format)
       const json = XLSX.utils.sheet_to_json(worksheet, {
         defval: '',
-        raw: true  // Get raw values to properly handle time numbers
+        raw: false  // Get formatted values to preserve date/time formats as strings
       })
 
-      // Normalize keys: trim & remove BOM etc, and handle time values
+      // Normalize keys: trim & remove BOM etc
       const normalized = json.map((row) => {
         const out = {}
         Object.keys(row).forEach((k) => {
           const key = k.toString().trim()
           let value = row[k]
 
-          // Handle potential date strings that xlsx might have missed or misparsed
-          if (typeof value === 'string' && /^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(value.trim())) {
-            const parts = value.trim().split(/[-/]/)
-            // Assume DD-MM-YYYY format if it's ambiguous, as per user's example
-            const d = parseInt(parts[0], 10)
-            const m = parseInt(parts[1], 10) - 1
-            const y = parseInt(parts[2], 10)
-            const dateObj = new Date(y, m, d)
-            if (!isNaN(dateObj)) {
-              value = dateObj
-            }
-          }
-
-          // Convert time values to properly formatted strings
-          value = convertExcelTimeValue(value, key)
-
+          // Keep all values as strings - no date conversion
+          // Dates will be preserved in their original format from Excel (e.g., DD-MM-YYYY)
           out[key] = value
         })
         return out
