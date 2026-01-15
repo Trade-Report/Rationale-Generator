@@ -760,7 +760,7 @@ function App() {
     const randomKeyPoints = generateRandomKeyPoints()
 
     const margin = 15
-    const footerHeight = 70 // Increased to accommodate larger icons
+    const footerHeight = 56 // Reduced by 20%
 
     // Extract trading data from Excel row if available
     const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
@@ -906,7 +906,7 @@ function App() {
 
     const margin = 15
     // Footer height (Increased for larger icons)
-    const footerHeight = 70
+    const footerHeight = 56 // Reduced by 20%
 
     // Extract trading data from Excel row if available
     const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
@@ -931,7 +931,7 @@ function App() {
 
 
     // Fixed Height Document
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [210, 800] })
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 450] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
 

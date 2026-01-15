@@ -57,7 +57,7 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
   if (!text) return y;
 
   // Start with base font size (14pt for body text)
-  let fontSize = 14;
+  let fontSize = 17; // Increased by 20% from 14
   const minFontSize = 8;
   let contentHeight = 0;
 

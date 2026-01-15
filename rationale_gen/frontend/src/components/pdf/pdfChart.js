@@ -33,32 +33,44 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
     if (keyPoints && keyPoints.length > 0) {
       const boxX = margin + chartWidth + gap
       const boxWidth = contentWidth - chartWidth - gap
-      const boxHeight = chartHeight
 
-      // Blueish background
+      // Calculate required height based on content
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      let totalHeight = 10 // Header "Key Points" + padding
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      const maxTextWidth = boxWidth - 8
+
+      // Pre-calculate height for all points
+      const pointsToRender = keyPoints.slice(0, 8)
+      pointsToRender.forEach((point) => {
+        const cleanPoint = point.replace(/^\W+/, '')
+        const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)
+        totalHeight += lines.length * 4 + 1
+      })
+
+      totalHeight += 4 // Bottom padding
+
+      // Draw dynamic background
       doc.setFillColor(230, 240, 255) // Light blue
-      doc.roundedRect(boxX, yPos, boxWidth, boxHeight, 2, 2, 'F')
+      doc.roundedRect(boxX, yPos, boxWidth, totalHeight, 2, 2, 'F')
 
+      // Draw header
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(11)
       doc.setTextColor(0, 0, 0)
       doc.text('Key Points', boxX + 4, yPos + 6)
 
+      // Draw points
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9) // Smaller font for points
+      doc.setFontSize(9)
 
       let textY = yPos + 12
-      const maxTextWidth = boxWidth - 8
-
-      keyPoints.slice(0, 8).forEach((point) => { // Limit to 8 points to fit the potentially taller box
-        const bullet = '• '
-        // Clean point text
+      pointsToRender.forEach((point) => {
         const cleanPoint = point.replace(/^\W+/, '')
-        const lines = doc.splitTextToSize(bullet + cleanPoint, maxTextWidth)
-
-        // Check if we have space
-        if (textY + lines.length * 4 > yPos + boxHeight) return
-
+        const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)
         doc.text(lines, boxX + 4, textY)
         textY += lines.length * 4 + 1
       })

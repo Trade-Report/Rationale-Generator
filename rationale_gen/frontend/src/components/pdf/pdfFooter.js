@@ -19,7 +19,7 @@ export const renderFooter = (doc, { pageWidth, pageHeight, margin, footerContact
 
   const addIconText = (text, icon, key) => {
     if (footerImages && footerImages[key]) {
-      const iconSize = 24 // Increased from 12 to 24
+      const iconSize = 17 // Reduced by 30% from 24
       const iconY = currentY - 8 // Adjusted for larger icon
       try {
         // Calculate current X position based on what's already in contactParts
@@ -68,12 +68,13 @@ export const renderFooter = (doc, { pageWidth, pageHeight, margin, footerContact
   if (footerAddress.trim()) {
     const addressKey = 'address'
     if (footerImages && footerImages[addressKey]) {
-      const iconSize = 24 // Increased from 12 to 24
+      const iconSize = 17 // Reduced by 30% from 24
       const iconY = currentY - 5
+      const textIndent = iconSize + 5 // Start text after icon
       try {
         doc.addImage(footerImages[addressKey], 'PNG', margin, iconY, iconSize, iconSize)
-        const addressLines = doc.splitTextToSize(`          ${footerAddress}`, pageWidth * 0.6) // Reduced padding
-        doc.text(addressLines, margin, currentY + 3) // Adjust Y for text alignment
+        const addressLines = doc.splitTextToSize(footerAddress, pageWidth * 0.6 - textIndent)
+        doc.text(addressLines, margin + textIndent, currentY + 3)
       } catch (e) {
         const addressLines = doc.splitTextToSize(`Address: ${footerAddress}`, pageWidth * 0.6)
         doc.text(addressLines, margin, currentY)
