@@ -32,7 +32,7 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
   }
 
   // Extract and normalize Plan Type for Enum compatibility (Title Case)
-  const rawPlanType = getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Plan Type'] || 'Equity');
+  const rawPlanType = getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Segment'] || 'Equity');
   const planType = rawPlanType.charAt(0).toUpperCase() + rawPlanType.slice(1).toLowerCase(); // Ensure Title Case (Equity, Commodity, etc.)
 
   return {
@@ -44,7 +44,7 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
     target3: getStringValue(selectedRow.target3 || selectedRow.Target3 || selectedRow.target_3 || selectedRow['Target 3'] || ''),
     stoploss: getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || ''),
     recommendation: getStringValue(selectedRow.recommendation || selectedRow.Recommendation || selectedRow['Trade Type'] || selectedRow.action || selectedRow.Action || 'OUTLOOK').toUpperCase(),
-    planType: getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Plan Type'] || 'Equity'),// Add planType to the returned object
+    planType: getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Segment'] || 'Equity'),// Add planType to the returned object
   }
 }
 

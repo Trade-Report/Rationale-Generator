@@ -565,7 +565,7 @@ function App() {
         formData.append('trade_data', JSON.stringify(tradeData))
         formData.append('image', imageFile)
         formData.append('prompt', customPrompt)
-        formData.append('plan_type', tradeData['Plan Type'])
+        formData.append('plan_type', tradeData['Segment'])
 
         response = await fetch('https://rationale-generator-2.onrender.com/gemini/analyze-with-rationale', {
           method: 'POST',
