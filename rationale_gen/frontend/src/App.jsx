@@ -935,7 +935,7 @@ function App() {
 
 
     // Fixed Height Document
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 450] })
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 550] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
 
@@ -1621,7 +1621,7 @@ function App() {
                           marginBottom: '1rem',
                           marginTop: 0
                         }}>
-                          Technical COMMENTORY
+                          Technical Commentary
                         </h3>
                         <textarea
                           value={editableRationale}

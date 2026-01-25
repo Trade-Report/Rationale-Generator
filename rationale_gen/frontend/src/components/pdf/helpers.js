@@ -44,7 +44,10 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
     target3: getStringValue(selectedRow.target3 || selectedRow.Target3 || selectedRow.target_3 || selectedRow['Target 3'] || ''),
     stoploss: getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || ''),
     recommendation: getStringValue(selectedRow.recommendation || selectedRow.Recommendation || selectedRow['Trade Type'] || selectedRow.action || selectedRow.Action || 'OUTLOOK').toUpperCase(),
-    planType: getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Segment'] || 'Equity'),// Add planType to the returned object
+    planType: getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Segment'] || 'Equity'),
+    strikePrice: getStringValue(selectedRow.strikePrice || selectedRow.StrikePrice || selectedRow['Strike Price'] || selectedRow.strikeprice || ''),
+    expiryDate: getStringValue(selectedRow.expiryDate || selectedRow.ExpiryDate || selectedRow['Expiry Date'] || selectedRow.expirydate || ''),
+    optionType: getStringValue(selectedRow.optionType || selectedRow.OptionType || selectedRow['Option Type'] || selectedRow.optiontype || '')
   }
 }
 

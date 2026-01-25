@@ -57,7 +57,7 @@ export const renderHeader = (doc, { pageWidth, margin, template, tradingData, ke
   doc.setFont('sans-serif', 'bold')
   doc.setFontSize(14) // Reduced size as requested
   doc.setTextColor(53, 4, 65)
-  doc.text('Technical COMMENTORY', pageWidth / 2, rowY, { align: 'center' })
+  doc.text('Technical Commentary', pageWidth / 2, rowY, { align: 'center' })
 
   return rowY + 10 // Return Y position for next component (body text)
 }
