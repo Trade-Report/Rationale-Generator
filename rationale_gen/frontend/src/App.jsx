@@ -1538,7 +1538,7 @@ function App() {
                           if (value === null || value === undefined) return ''
                           return String(value)
                         }
-                        const tradingName = getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || '')
+                        const tradingName = getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || selectedRow['Trade Name'] || '')
                         const target1 = getStringValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || '')
                         const target2 = getStringValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || '')
                         const stoploss = getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || '')

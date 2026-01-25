@@ -36,7 +36,7 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
   const planType = rawPlanType.charAt(0).toUpperCase() + rawPlanType.slice(1).toLowerCase(); // Ensure Title Case (Equity, Commodity, etc.)
 
   return {
-    tradingName: getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || selectedRow['Script Name'] || selectedRow.script || ''),
+    tradingName: getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || selectedRow['Script Name'] || selectedRow['Trade Name'] || selectedRow.script || ''),
     cmp: getStringValue(selectedRow.CMP || selectedRow.cmp || selectedRow['Current Market Price'] || selectedRow['Current Price'] || ''),
     entrylevel: getStringValue(selectedRow.entrylevel || selectedRow.EntryLevel || selectedRow.entry_level || selectedRow['Entry Level'] || selectedRow['EntryLevel'] || selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || ''),
     target1: getStringValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || ''),
