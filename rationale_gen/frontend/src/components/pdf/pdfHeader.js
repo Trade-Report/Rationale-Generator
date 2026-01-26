@@ -55,7 +55,7 @@ export const renderHeader = (doc, { pageWidth, margin, template, tradingData, ke
 
   // 3. Technical Commentary Title (Center Aligned on Page)
   doc.setFont('sans-serif', 'bold')
-  doc.setFontSize(14) // Reduced size as requested
+  doc.setFontSize(20) // Reduced size as requested
   doc.setTextColor(53, 4, 65)
   doc.text('Technical Commentary', pageWidth / 2, rowY, { align: 'center' })
 

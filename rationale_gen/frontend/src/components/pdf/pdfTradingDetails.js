@@ -31,8 +31,13 @@ export const renderTradingDetails = (doc, { pageWidth, margin, tradingData, yPos
   }
 
   // Options Specific Fields
+  // When planType is "Options", concatenate Strike Price with Option Type (e.g., "390CE")
   if (tradingData.strikePrice) {
-    const text = `Strike Price: ${tradingData.strikePrice}`
+    const isOptions = tradingData.planType && tradingData.planType.toLowerCase() === 'options'
+    const strikePriceDisplay = isOptions && tradingData.optionType
+      ? `${tradingData.strikePrice}${tradingData.optionType}`
+      : tradingData.strikePrice
+    const text = `Strike Price: ${strikePriceDisplay}`
     const width = doc.getTextWidth(text) + 8
     doc.setFillColor(200, 220, 255)
     doc.roundedRect(currentX, boxY, width, rowHeight, 1, 1, 'F')
@@ -49,7 +54,8 @@ export const renderTradingDetails = (doc, { pageWidth, margin, tradingData, yPos
     currentX += width + spacing
   }
 
-  if (tradingData.optionType) {
+  // Only show Option Type separately if planType is NOT "Options" (since it's already concatenated with Strike Price)
+  if (tradingData.optionType && !(tradingData.planType && tradingData.planType.toLowerCase() === 'options')) {
     const text = `Option Type: ${tradingData.optionType}`
     const width = doc.getTextWidth(text) + 8
     doc.setFillColor(200, 220, 255)

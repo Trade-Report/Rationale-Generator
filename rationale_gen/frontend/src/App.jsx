@@ -935,7 +935,7 @@ function App() {
 
 
     // Fixed Height Document
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 550] })
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 500] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
 

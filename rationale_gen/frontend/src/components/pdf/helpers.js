@@ -47,7 +47,7 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
     planType: getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Segment'] || 'Equity'),
     strikePrice: getStringValue(selectedRow.strikePrice || selectedRow.StrikePrice || selectedRow['Strike Price'] || selectedRow.strikeprice || ''),
     expiryDate: getStringValue(selectedRow.expiryDate || selectedRow.ExpiryDate || selectedRow['Expiry Date'] || selectedRow.expirydate || ''),
-    optionType: getStringValue(selectedRow.optionType || selectedRow.OptionType || selectedRow['Option Type'] || selectedRow.optiontype || '')
+    optionType: getStringValue(selectedRow.optionType || selectedRow.OptionType || selectedRow['Option Type'] || selectedRow['Options Type'] || selectedRow.optiontype || '')
   }
 }
 
