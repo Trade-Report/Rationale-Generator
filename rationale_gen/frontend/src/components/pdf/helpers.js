@@ -220,28 +220,96 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
   }
 
   const selectedRow = excelRows[selectedStockIndex]
+
+  /**
+   * Helper function to get string value from a field
+   */
   const getStringValue = (value) => {
     if (value === null || value === undefined) return ''
     return String(value).trim()
   }
 
-  // Extract and normalize Plan Type for Enum compatibility (Title Case)
-  const rawPlanType = getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Segment'] || 'Equity');
-  const planType = rawPlanType.charAt(0).toUpperCase() + rawPlanType.slice(1).toLowerCase(); // Ensure Title Case (Equity, Commodity, etc.)
+  /**
+   * Helper function to check if a value is valid (not empty, '-', '0', or other invalid values)
+   * Returns empty string if invalid, otherwise returns the cleaned value
+   */
+  const getValidValue = (value) => {
+    const stringVal = getStringValue(value)
+    // Invalid values that should be treated as empty
+    const invalidValues = ['', '-', '0', '0.0', '0.00', 'na', 'n/a', 'nil', 'none', 'null', 'undefined']
+    if (invalidValues.includes(stringVal.toLowerCase())) {
+      return ''
+    }
+    return stringVal
+  }
+
+  // Extract and normalize Plan Type / Segment for field filtering
+  const rawPlanType = getStringValue(
+    selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type ||
+    selectedRow['Segment'] || selectedRow.segment || 'Equity'
+  )
+  const planType = rawPlanType.charAt(0).toUpperCase() + rawPlanType.slice(1).toLowerCase() // Ensure Title Case
+  const planTypeLower = planType.toLowerCase()
+
+  /**
+   * Segment-based field rules:
+   * - Equity: No Strike Price, No Option Type, No Expiry Date
+   * - Options: Has Strike Price, Option Type, Expiry Date
+   * - Commodity: Has Expiry Date, No Strike Price, No Option Type
+   * - Derivatives: Has Expiry Date, No Strike Price, No Option Type
+   */
+  const segmentFieldRules = {
+    equity: {
+      showStrikePrice: false,
+      showOptionType: false,
+      showExpiryDate: false
+    },
+    options: {
+      showStrikePrice: true,
+      showOptionType: true,
+      showExpiryDate: true
+    },
+    commodity: {
+      showStrikePrice: false,
+      showOptionType: false,
+      showExpiryDate: true
+    },
+    derivatives: {
+      showStrikePrice: false,
+      showOptionType: false,
+      showExpiryDate: true
+    }
+  }
+
+  // Get the field rules for current segment (default to equity if unknown)
+  const rules = segmentFieldRules[planTypeLower] || segmentFieldRules.equity
+
+  // Extract values with validation
+  const strikePrice = rules.showStrikePrice
+    ? getValidValue(selectedRow.strikePrice || selectedRow.StrikePrice || selectedRow['Strike Price'] || selectedRow.strikeprice || '')
+    : ''
+
+  const optionType = rules.showOptionType
+    ? getValidValue(selectedRow.optionType || selectedRow.OptionType || selectedRow['Option Type'] || selectedRow['Options Type'] || selectedRow.optiontype || '')
+    : ''
+
+  const expiryDate = rules.showExpiryDate
+    ? getValidValue(selectedRow.expiryDate || selectedRow.ExpiryDate || selectedRow['Expiry Date'] || selectedRow.expirydate || '')
+    : ''
 
   return {
-    tradingName: getStringValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || selectedRow['Script Name'] || selectedRow['Trade Name'] || selectedRow.script || ''),
-    cmp: getStringValue(selectedRow.CMP || selectedRow.cmp || selectedRow['Current Market Price'] || selectedRow['Current Price'] || ''),
-    entrylevel: getStringValue(selectedRow.entrylevel || selectedRow.EntryLevel || selectedRow.entry_level || selectedRow['Entry Level'] || selectedRow['EntryLevel'] || selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || ''),
-    target1: getStringValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || ''),
-    target2: getStringValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || ''),
-    target3: getStringValue(selectedRow.target3 || selectedRow.Target3 || selectedRow.target_3 || selectedRow['Target 3'] || ''),
-    stoploss: getStringValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || ''),
+    tradingName: getValidValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || selectedRow['Script Name'] || selectedRow['Trade Name'] || selectedRow.script || ''),
+    cmp: getValidValue(selectedRow.CMP || selectedRow.cmp || selectedRow['Current Market Price'] || selectedRow['Current Price'] || ''),
+    entrylevel: getValidValue(selectedRow.entrylevel || selectedRow.EntryLevel || selectedRow.entry_level || selectedRow['Entry Level'] || selectedRow['EntryLevel'] || selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || ''),
+    target1: getValidValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || ''),
+    target2: getValidValue(selectedRow.target2 || selectedRow.Target2 || selectedRow.target_2 || selectedRow['Target 2'] || ''),
+    target3: getValidValue(selectedRow.target3 || selectedRow.Target3 || selectedRow.target_3 || selectedRow['Target 3'] || ''),
+    stoploss: getValidValue(selectedRow.stoploss || selectedRow.StopLoss || selectedRow.stop_loss || selectedRow['Stop Loss'] || selectedRow['Stop-Loss'] || ''),
     recommendation: getStringValue(selectedRow.recommendation || selectedRow.Recommendation || selectedRow['Trade Type'] || selectedRow.action || selectedRow.Action || 'OUTLOOK').toUpperCase(),
-    planType: getStringValue(selectedRow.planType || selectedRow.PlanType || selectedRow.plan_type || selectedRow['Segment'] || 'Equity'),
-    strikePrice: getStringValue(selectedRow.strikePrice || selectedRow.StrikePrice || selectedRow['Strike Price'] || selectedRow.strikeprice || ''),
-    expiryDate: getStringValue(selectedRow.expiryDate || selectedRow.ExpiryDate || selectedRow['Expiry Date'] || selectedRow.expirydate || ''),
-    optionType: getStringValue(selectedRow.optionType || selectedRow.OptionType || selectedRow['Option Type'] || selectedRow['Options Type'] || selectedRow.optiontype || '')
+    planType: planType,
+    strikePrice: strikePrice,
+    expiryDate: expiryDate,
+    optionType: optionType
   }
 }
 
