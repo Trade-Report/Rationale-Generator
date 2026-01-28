@@ -7,5 +7,5 @@ export { renderTechnicalCommentary } from './pdfTechnicalCommentary'
 export { renderChart } from './pdfChart'
 export { renderDisclaimer } from './pdfDisclaimer'
 export { renderFooter } from './pdfFooter'
-export { hexToRgb, getTradingData, extractKeyPoints } from './helpers'
+export { hexToRgb, getTradingData, extractKeyPoints, calculateDynamicPageHeight, calculateTechnicalCommentaryHeight, calculateDisclaimerHeight, calculateChartHeight, getHeaderHeight, getTradingDetailsHeight, getFooterHeight } from './helpers'
 

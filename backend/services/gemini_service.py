@@ -515,7 +515,7 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
         "usage": usage
     }
 
-def build_key_points_prompt(analysis_points: list[str], max_points: int = 4) -> str:
+def build_key_points_prompt(analysis_points: list[str], max_points: int = 8) -> str:
     joined_analysis = "\n".join(f"- {p}" for p in analysis_points)
 
     return f"""
