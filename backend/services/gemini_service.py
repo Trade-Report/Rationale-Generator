@@ -489,11 +489,12 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
         endpoint=f"analyze_with_rationale_{plan_type or 'generic'}"
     )
 
-    analysis_points = format_analysis_points(response_text, max_points=8)
+    analysis_points = format_analysis_points(response_text, max_points=10)
     
     key_points_prompt = build_key_points_prompt(
         analysis_points=analysis_points,
-        max_points=6
+        min_points=6,
+        max_points=10
     )
 
     key_points_text, _ = await _call_gemini(
@@ -506,8 +507,19 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
 
     key_points = format_analysis_points(
         raw_text=key_points_text,
-        max_points=4
+        max_points=10
     )
+    
+    # Ensure minimum 6 key points - if less, pad with analysis points
+    if len(key_points) < 6:
+        remaining_needed = 6 - len(key_points)
+        # Get analysis points that aren't already in key_points
+        for point in analysis_points:
+            if point not in key_points and remaining_needed > 0:
+                key_points.append(point)
+                remaining_needed -= 1
+            if remaining_needed <= 0:
+                break
 
     return {
         "analysis": analysis_points,
@@ -515,7 +527,7 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
         "usage": usage
     }
 
-def build_key_points_prompt(analysis_points: list[str], max_points: int = 8) -> str:
+def build_key_points_prompt(analysis_points: list[str], min_points: int = 6, max_points: int = 10) -> str:
     joined_analysis = "\n".join(f"- {p}" for p in analysis_points)
 
     return f"""
@@ -534,10 +546,11 @@ KEY POINT RULES:
 - Do NOT repeat similar ideas
 - Do NOT add new analysis
 - Do NOT use markdown, bullets, numbering, or symbols
-- Maximum {max_points} key points only
+- You MUST provide at least {min_points} key points
+- You can provide up to {max_points} key points maximum
 - Keep language natural and trader-friendly
 
-Return only the key points as separate lines.
+Return only the key points as separate lines. Ensure you have at least {min_points} points.
 """
 
 # ===============================
@@ -560,10 +573,27 @@ Avoid formatting or symbols.
         endpoint="analyze_image_only"
     )
 
-    analysis_points = format_analysis_points(response_text, max_points=8)
+    analysis_points = format_analysis_points(response_text, max_points=10)
     
-    # Use top points as key points since we don't have a separate summarization step here
-    key_points = analysis_points[:6]
+    # Use analysis points as key points (min 6, max 10)
+    key_points = analysis_points[:10] if len(analysis_points) >= 6 else analysis_points
+    
+    # Ensure minimum 6 key points by padding if needed
+    if len(key_points) < 6:
+        # Add generic insights to meet minimum
+        padding_points = [
+            "Monitor price action for trend confirmation.",
+            "Watch for volume changes at key levels.",
+            "Risk management should be maintained.",
+            "Key support and resistance levels are critical.",
+            "Market momentum should guide entry timing.",
+            "Volatility conditions may impact trade execution."
+        ]
+        for pad_point in padding_points:
+            if len(key_points) >= 6:
+                break
+            if pad_point not in key_points:
+                key_points.append(pad_point)
 
     return {
         "analysis": analysis_points,

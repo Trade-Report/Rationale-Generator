@@ -43,8 +43,35 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
       doc.setFontSize(9)
       const maxTextWidth = boxWidth - 8
 
+      // Enforce min 6, max 10 key points
+      const MIN_KEY_POINTS = 6
+      const MAX_KEY_POINTS = 10
+
+      // Start with available key points (max 10)
+      let pointsToRender = keyPoints.slice(0, MAX_KEY_POINTS)
+
+      // If fewer than 6 key points, add fallback points
+      if (pointsToRender.length < MIN_KEY_POINTS) {
+        const fallbackPoints = [
+          'Monitor price action for trend confirmation.',
+          'Watch for volume changes at key levels.',
+          'Risk management should be maintained.',
+          'Key support and resistance levels are critical.',
+          'Market momentum should guide entry timing.',
+          'Volatility conditions may impact trade execution.'
+        ]
+
+        let index = 0
+        while (pointsToRender.length < MIN_KEY_POINTS && index < fallbackPoints.length) {
+          // Only add if not already present
+          if (!pointsToRender.includes(fallbackPoints[index])) {
+            pointsToRender.push(fallbackPoints[index])
+          }
+          index++
+        }
+      }
+
       // Pre-calculate height for all points
-      const pointsToRender = keyPoints.slice(0, 8)
       pointsToRender.forEach((point) => {
         const cleanPoint = point.replace(/^\W+/, '')
         const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)

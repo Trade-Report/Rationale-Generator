@@ -92,7 +92,12 @@ export const calculateChartHeight = (doc, imagePreview, contentWidth, keyPoints)
       doc.setFontSize(9)
       const maxTextWidth = boxWidth - 8
 
-      const pointsToRender = keyPoints.slice(0, 8)
+      // Calculate for min 6, max 10 key points
+      const MIN_KEY_POINTS = 6
+      const MAX_KEY_POINTS = 10
+      const pointsCount = Math.max(MIN_KEY_POINTS, Math.min(keyPoints.length, MAX_KEY_POINTS))
+      const pointsToRender = keyPoints.slice(0, pointsCount)
+
       pointsToRender.forEach((point) => {
         const cleanPoint = point.replace(/^\W+/, '')
         const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)

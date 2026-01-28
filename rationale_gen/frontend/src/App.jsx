@@ -27,7 +27,8 @@ import {
   renderDisclaimer,
   renderFooter,
   getTradingData,
-  extractKeyPoints
+  extractKeyPoints,
+  calculateDynamicPageHeight
 } from './components/pdf'
 import emailIconPath from './assets/email.png'
 import phoneIconPath from './assets/phone-call.png'
@@ -734,28 +735,25 @@ function App() {
     return commentaries[Math.floor(Math.random() * commentaries.length)]
   }
 
-  // Generate random key points
+  // Generate random key points (min 6, max 10)
   const generateRandomKeyPoints = () => {
-    const macdOptions = [
+    const allKeyPoints = [
       'MACD: Bullish crossover with histogram expanding, indicating strong upward momentum.',
-      'MACD: Bearish crossover with histogram turning red, indicating momentum shift in favor of sellers.',
       'MACD: Signal line crossover above zero line suggests potential bullish reversal.',
-      'MACD: Convergence of MACD line and signal line indicates potential trend change.',
-      'MACD: Positive divergence forming, suggesting underlying strength despite price weakness.'
-    ]
-
-    const rsiOptions = [
-      'RSI: Gradual decline from overbought territory, showing reduced buying strength and potential for further downside.',
-      'RSI: Strong upward movement from oversold levels indicates buying momentum building.',
       'RSI: Holding above 50 level suggests underlying bullish momentum remains intact.',
-      'RSI: Divergence pattern forming between price and indicator, warning of potential reversal.',
-      'RSI: Currently in neutral zone, indicating balanced supply and demand forces.'
+      'RSI: Strong upward movement from oversold levels indicates buying momentum building.',
+      'Price consolidating above key support zone, building base for next move.',
+      'Volume pattern confirms institutional accumulation at current levels.',
+      'Moving averages aligned in bullish order, supporting trend continuation.',
+      'Break above resistance level could trigger momentum acceleration.',
+      'Risk-reward ratio favorable at current entry levels.',
+      'Market structure remains constructive with higher lows intact.'
     ]
 
-    return [
-      macdOptions[Math.floor(Math.random() * macdOptions.length)],
-      rsiOptions[Math.floor(Math.random() * rsiOptions.length)]
-    ]
+    // Shuffle and return 6-10 random points
+    const shuffled = [...allKeyPoints].sort(() => Math.random() - 0.5)
+    const count = Math.floor(Math.random() * 5) + 6 // Random between 6 and 10
+    return shuffled.slice(0, count)
   }
 
   // Export PDF with random content
@@ -795,8 +793,25 @@ function App() {
       dateForHeader = new Date().toISOString().split('T')[0]
     }
 
-    // Fixed Height Document
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 500] })
+    // Calculate dynamic page height based on content
+    // First create a temporary document to measure content heights
+    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 800] })
+    const tempPageWidth = tempDoc.internal.pageSize.getWidth()
+
+    // Calculate the dynamic page height
+    const dynamicPageHeight = calculateDynamicPageHeight(tempDoc, {
+      pageWidth: tempPageWidth,
+      margin,
+      rationale: randomTechnicalCommentary,
+      pdfDisclaimer,
+      imagePreview,
+      keyPoints: randomKeyPoints,
+      componentOrder
+    })
+
+    // Create final document with calculated height (minimum 300mm to ensure reasonable page size)
+    const finalPageHeight = Math.max(dynamicPageHeight, 300)
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, finalPageHeight] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
 
@@ -933,9 +948,25 @@ function App() {
     // Determine Header Date (User Edited or Default)
     const dateForHeader = headerDate || new Date().toISOString().split('T')[0]
 
+    // Calculate dynamic page height based on content
+    // First create a temporary document to measure content heights
+    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 800] })
+    const tempPageWidth = tempDoc.internal.pageSize.getWidth()
 
-    // Fixed Height Document
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 500] })
+    // Calculate the dynamic page height
+    const dynamicPageHeight = calculateDynamicPageHeight(tempDoc, {
+      pageWidth: tempPageWidth,
+      margin,
+      rationale: rationaleToExport,
+      pdfDisclaimer,
+      imagePreview,
+      keyPoints,
+      componentOrder
+    })
+
+    // Create final document with calculated height (minimum 300mm to ensure reasonable page size)
+    const finalPageHeight = Math.max(dynamicPageHeight, 300)
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, finalPageHeight] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
 
