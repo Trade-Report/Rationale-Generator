@@ -21,7 +21,7 @@ export const renderDate = (doc, { xPos, yPos, headerDate }) => {
   doc.setFillColor(255, 250, 230) // Light yellow
   const dateText = `Date: ${displayDate}`
   doc.setFont('helvetica', 'bold') // Bold sans-serif
-  doc.setFontSize(13) // 12-14pt range, using 13pt
+  doc.setFontSize(16) // 12-14pt range, using 13pt
   const dateWidth = doc.getTextWidth(dateText) + 8
   doc.roundedRect(dateX, dateY - 4, dateWidth, 7, 3, 3, 'F')
   doc.setTextColor(0, 0, 0)

@@ -389,12 +389,12 @@ IMPORTANT OUTPUT RULES:
 # ===============================
 # Gemini Output Formatter
 # ===============================
-def format_analysis_points(raw_text: str, max_points: int = 6) -> list[str]:
+def format_analysis_points(raw_text: str, max_points: int = 10) -> list[str]:
     """
     Enforces:
     - Point-wise output
     - No markdown
-    - Max 6 points
+    - Max 10 points
     """
 
     # Remove markdown and symbols
