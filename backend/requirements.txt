@@ -6,3 +6,9 @@ google-generativeai
 pillow
 httpx
 pydantic
+sqlalchemy
+passlib[bcrypt]
+python-jose
+psycopg2-binary
+
+
