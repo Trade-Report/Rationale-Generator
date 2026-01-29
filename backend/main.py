@@ -1,10 +1,23 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# Existing routes
 from routes.gemini_routes import router as gemini_router
+
+# ✅ New routes
+from routes.admin_auth import router as admin_auth_router
+from routes.admin_clients import router as admin_clients_router
+from routes.usage_routes import router as usage_router
+
+# ✅ DB init
+from utils.database import Base, engine
+
+# Create DB tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Rationale Generator API")
 
-# Add CORS middleware
+# ✅ CORS (UNCHANGED)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -21,7 +34,13 @@ app.add_middleware(
     allow_headers=["*", "X-GEMINI-API-KEY"],
 )
 
+# ✅ Existing Gemini routes
 app.include_router(gemini_router)
+
+# ✅ Admin & Platform routes
+app.include_router(admin_auth_router)
+app.include_router(admin_clients_router)
+app.include_router(usage_router)
 
 @app.get("/")
 def health():
