@@ -1,13 +1,15 @@
 // PDF Technical Commentary Component
 // Renders the technical commentary section with title and bullet-pointed content
 
-export const renderTechnicalCommentary = (doc, { pageWidth, margin, rationale, yPos, pageHeight, footerHeight }) => {
+export const renderTechnicalCommentary = (doc, { pageWidth, margin, rationale, yPos, pageHeight, footerHeight, disclaimerHeight }) => {
   if (!rationale || !rationale.trim()) return yPos
 
   // Title removed as it is now rendered in the Header component
 
   // Calculate available height for content (ensure disclaimer is always visible)
-  const availableHeight = pageHeight - footerHeight - yPos - 60 // Reserve space for disclaimer
+  // Use passed disclaimerHeight or default to 60 if not provided
+  const reservedDisclaimerHeight = disclaimerHeight || 60
+  const availableHeight = pageHeight - footerHeight - yPos - reservedDisclaimerHeight - 10 // Reserve space for disclaimer + padding
   const maxWidth = pageWidth - 2 * margin
 
   // Set text color to Black as requested

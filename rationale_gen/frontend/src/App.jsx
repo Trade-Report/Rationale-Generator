@@ -28,7 +28,8 @@ import {
   renderFooter,
   getTradingData,
   extractKeyPoints,
-  calculateDynamicPageHeight
+  calculateDynamicPageHeight,
+  calculateDisclaimerHeight
 } from './components/pdf'
 import emailIconPath from './assets/email.png'
 import phoneIconPath from './assets/phone-call.png'
@@ -964,11 +965,15 @@ function App() {
       componentOrder
     })
 
-    // Create final document with calculated height (minimum 300mm to ensure reasonable page size)
-    const finalPageHeight = Math.max(dynamicPageHeight, 300)
+    // Create final document with calculated height (minimum 290mm to ensure reasonable page size)
+    const finalPageHeight = Math.max(dynamicPageHeight, 290)
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, finalPageHeight] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
+
+    // Calculate disclaimer height explicitly to pass to technical commentary
+    // This allows technical commentary to know exactly how much space to leave
+    const calculatedDisclaimerHeight = calculateDisclaimerHeight(tempDoc, pdfDisclaimer, tempDoc.internal.pageSize.getWidth() - 2 * 5) // 5 is disclaimer margin
 
     // 1. Header Section
     yPos = renderHeader(doc, {
@@ -1014,7 +1019,8 @@ function App() {
             rationale: rationaleToExport,
             yPos,
             pageHeight,
-            footerHeight
+            footerHeight,
+            disclaimerHeight: calculatedDisclaimerHeight // Pass calculated height
           })
           break
 

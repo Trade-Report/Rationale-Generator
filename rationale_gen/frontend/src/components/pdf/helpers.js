@@ -28,11 +28,13 @@ export const calculateTechnicalCommentaryHeight = (doc, rationale, maxWidth, fon
 
     // Remove markdown markers for height calculation
     const cleanLine = line.replace(/\*\*/g, '')
-    const wrappedLines = doc.splitTextToSize(cleanLine, maxWidth)
+    // Add small buffer to width calculation to account for rendering differences
+    const safeMaxWidth = maxWidth - 2
+    const wrappedLines = doc.splitTextToSize(cleanLine, safeMaxWidth)
     height += wrappedLines.length * lineHeight
   })
 
-  return height + 10 // Add padding
+  return height + 10 // Reduced padding for tighter layout
 }
 
 /**
@@ -55,7 +57,7 @@ export const calculateDisclaimerHeight = (doc, pdfDisclaimer, disclaimerWidth, f
   const lineHeight = doc.getLineHeight() / doc.internal.scaleFactor
   const contentHeight = disclaimerLines.length * lineHeight
 
-  return contentHeight + 20 // Add padding (12 initial + 5 final)
+  return contentHeight + 15 // Reduced padding (12 initial + 3 final)
 }
 
 /**
@@ -72,18 +74,21 @@ export const calculateChartHeight = (doc, imagePreview, contentWidth, keyPoints)
   try {
     const imgProps = doc.getImageProperties(imagePreview)
     const originalRatio = imgProps.width / imgProps.height
-    const chartWidth = contentWidth * 0.65
+    let chartWidth = contentWidth * 0.65
     let chartHeight = chartWidth / originalRatio
 
     // Safety cap for height
     const maxHeight = 90
     if (chartHeight > maxHeight) {
       chartHeight = maxHeight
+      // Recalculate width to maintain aspect ratio (MATCHING pdfChart.js logic)
+      chartWidth = chartHeight * originalRatio
     }
 
     // Also consider key points box height if it might be taller
     if (keyPoints && keyPoints.length > 0) {
-      const boxWidth = contentWidth - chartWidth - 10
+      const gap = 10
+      const boxWidth = contentWidth - chartWidth - gap
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(11)
       let keyPointsHeight = 10 // Header
@@ -98,11 +103,26 @@ export const calculateChartHeight = (doc, imagePreview, contentWidth, keyPoints)
       const pointsCount = Math.max(MIN_KEY_POINTS, Math.min(keyPoints.length, MAX_KEY_POINTS))
       const pointsToRender = keyPoints.slice(0, pointsCount)
 
+      // Fallback points simulation if needed
+      if (pointsToRender.length < MIN_KEY_POINTS) {
+        // We assume worst case for fallback points to be safe on height
+        // Use a conservative estimate or just rely on the count since we know the min count
+        // The actual fallback points are hardcoded in pdfChart.js, we don't need to duplicate perfectly
+        // just ensure the height calc covers them.
+      }
+
       pointsToRender.forEach((point) => {
         const cleanPoint = point.replace(/^\W+/, '')
         const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)
         keyPointsHeight += lines.length * 4 + 1
       })
+
+      // Add extra buffer for fallback points if original count was low
+      if (keyPoints.length < MIN_KEY_POINTS) {
+        const missingPoints = MIN_KEY_POINTS - keyPoints.length
+        // Estimate 2 lines per missing point (safe buffer)
+        keyPointsHeight += missingPoints * (2 * 4 + 1)
+      }
 
       keyPointsHeight += 4 // Bottom padding
 
@@ -187,7 +207,8 @@ export const calculateDynamicPageHeight = (doc, {
   totalHeight += getFooterHeight()
 
   // Add some buffer margin (top + bottom margins)
-  const bufferMargin = 30
+  // Reduced to 10 to minimize gap between disclaimer and footer
+  const bufferMargin = 10
 
   return totalHeight + bufferMargin
 }

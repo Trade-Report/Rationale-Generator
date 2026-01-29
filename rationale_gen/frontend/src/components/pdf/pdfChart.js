@@ -13,7 +13,7 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
     const originalRatio = imgProps.width / imgProps.height
 
     // Increase chart width to ~65% of page width
-    const chartWidth = contentWidth * 0.65
+    let chartWidth = contentWidth * 0.65
 
     // Calculate chart height based on original aspect ratio
     // But cap it so it doesn't take over the entire page
@@ -23,6 +23,8 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
     const maxHeight = 90
     if (chartHeight > maxHeight) {
       chartHeight = maxHeight
+      // Recalculate width to maintain aspect ratio
+      chartWidth = chartHeight * originalRatio
     }
 
     // 1. Render Chart (Left Side)
@@ -36,7 +38,7 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
 
       // Calculate required height based on content
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
+      doc.setFontSize(14)
       let totalHeight = 10 // Header "Key Points" + padding
 
       doc.setFont('helvetica', 'normal')
@@ -86,13 +88,13 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
 
       // Draw header
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
+      doc.setFontSize(16)
       doc.setTextColor(0, 0, 0)
       doc.text('Key Points', boxX + 4, yPos + 6)
 
       // Draw points
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
+      doc.setFontSize(13)
 
       let textY = yPos + 12
       pointsToRender.forEach((point) => {
