@@ -14,7 +14,9 @@ import {
   FiMoon,
   FiSun,
   FiDownload,
-  FiRefreshCw // Added Refresh Icon
+  FiRefreshCw, // Added Refresh Icon
+  FiFilter,
+  FiCalendar
 } from 'react-icons/fi'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
@@ -154,6 +156,13 @@ function App() {
   const [geminiApiKey, setGeminiApiKey] = useState('') // New state for API Key
   const [processedRows, setProcessedRows] = useState(new Set()) // Track processed row indices
   const [autoDownload, setAutoDownload] = useState(false) // Trigger for auto-download
+  const [allSheets, setAllSheets] = useState([])
+  const [selectedSheetId, setSelectedSheetId] = useState(null) // Currently selected sheet
+  const [dateFilter, setDateFilter] = useState('') // Date filter for sheets
+  const [activeTab, setActiveTab] = useState(0) // Active tab index for sheets
+  const [sheetsPerTab] = useState(5) // Number of sheets to show per tab
+  const [rowRationaleData, setRowRationaleData] = useState({}) // Will be loaded from backend
+  const [loadingSheets, setLoadingSheets] = useState(false)
 
   const [emailIconBase64, setEmailIconBase64] = useState(null)
   const [phoneIconBase64, setPhoneIconBase64] = useState(null)
@@ -211,6 +220,16 @@ function App() {
   useEffect(() => {
     localStorage.setItem('selectedTemplate', selectedTemplate)
   }, [selectedTemplate])
+
+  // Save all sheets to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('allSheets', JSON.stringify(allSheets))
+  }, [allSheets])
+
+  // Save row rationale data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('rowRationaleData', JSON.stringify(rowRationaleData))
+  }, [rowRationaleData])
 
   // Initialize editableRationale when rationaleResult is set
   useEffect(() => {
@@ -427,7 +446,53 @@ function App() {
         return out
       })
 
-      setExcelRows(normalized)
+      // Save sheet to backend
+      const uploadDate = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/sheets`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            file_name: file.name,
+            upload_date: uploadDate,
+            rows_data: normalized,
+            processed_rows: []
+          })
+        })
+
+        if (response.ok) {
+          const savedSheet = await response.json()
+          const sheetId = savedSheet.id.toString()
+          
+          // Update local state
+          const newSheet = {
+            id: sheetId,
+            fileName: savedSheet.file_name,
+            uploadDate: savedSheet.upload_date,
+            rows: savedSheet.rows_data,
+            processedRows: savedSheet.processed_rows || []
+          }
+          
+          // Reload all sheets from backend
+          await loadAllSheets()
+          
+          // Set as currently selected sheet
+          setSelectedSheetId(sheetId)
+          setExcelRows(normalized)
+          setFileInfo({
+            name: file.name,
+            type: 'excel',
+            size: (file.size / 1024).toFixed(2),
+            sheetId: sheetId
+          })
+        } else {
+          throw new Error('Failed to save sheet to backend')
+        }
+      } catch (error) {
+        console.error('Error saving sheet:', error)
+        alert('Failed to save sheet. Please try again.')
+      }
     } catch (err) {
       console.error('Excel parse error', err)
       setExcelError('Failed to parse Excel file. Make sure it is a valid .xlsx or .xls file.')
@@ -473,6 +538,289 @@ function App() {
       setParsingExcel(false)
       handleImageUpload(file)
     }
+  }
+
+  // Load a sheet from allSheets
+  const loadSheet = (sheetId) => {
+    const sheet = allSheets.find(s => s.id === sheetId)
+    if (sheet) {
+      setSelectedSheetId(sheetId)
+      setExcelRows(sheet.rows)
+      setExcelFileName(sheet.fileName)
+      setFileInfo({
+        name: sheet.fileName,
+        type: 'excel',
+        size: '0',
+        sheetId: sheetId
+      })
+      // Restore processed rows
+      setProcessedRows(new Set(sheet.processedRows))
+      setSelectedStockIndex(null)
+      setImageFile(null)
+      setImagePreview(null)
+      setRationaleResult(null)
+    }
+  }
+
+  // Get filtered sheets based on date filter
+  const getFilteredSheets = () => {
+    if (!dateFilter) return allSheets
+    return allSheets.filter(sheet => sheet.uploadDate === dateFilter)
+  }
+
+  // Get sheets for the current tab
+  const getSheetsForCurrentTab = () => {
+    const filtered = getFilteredSheets()
+    // If we have 5 or fewer sheets, show all of them (no tabs needed)
+    if (filtered.length <= sheetsPerTab) {
+      return filtered
+    }
+    // Otherwise, slice to show only sheetsPerTab sheets per tab
+    const startIndex = activeTab * sheetsPerTab
+    const endIndex = startIndex + sheetsPerTab
+    const sliced = filtered.slice(startIndex, endIndex)
+    // Ensure we never return more than sheetsPerTab items
+    return sliced.slice(0, sheetsPerTab)
+  }
+
+  // Calculate total number of tabs needed
+  const getTotalTabs = () => {
+    const filtered = getFilteredSheets()
+    return Math.ceil(filtered.length / sheetsPerTab)
+  }
+
+  // Reset to first tab when filter changes or when sheets change
+  useEffect(() => {
+    setActiveTab(0)
+  }, [dateFilter, allSheets.length])
+
+  // Export PDF with provided data (for saved rationales)
+  const exportToPDFWithData = async (sheetRows, rowIndex, rationaleData, imagePreviewData, fileName, sheetId) => {
+    const rationaleToExport = rationaleData.editableRationale || rationaleData.rationale || ''
+    
+    if (!rationaleToExport) {
+      alert('No rationale data available for export.')
+      return
+    }
+
+    const margin = 15
+    const footerHeight = 56
+
+    // Extract trading data from Excel row
+    const tradingData = getTradingData(
+      { name: fileName, type: 'excel', sheetId: sheetId },
+      rowIndex,
+      sheetRows
+    )
+
+    // Extract key points
+    let keyPoints = []
+    if (rationaleData.rationaleResult && rationaleData.rationaleResult.output && rationaleData.rationaleResult.output.key_points && Array.isArray(rationaleData.rationaleResult.output.key_points)) {
+      keyPoints = rationaleData.rationaleResult.output.key_points
+    } else {
+      keyPoints = extractKeyPoints(rationaleToExport)
+    }
+
+    let yPos = 0
+
+    // Get template configuration
+    const templateConfig = TEMPLATES[selectedTemplate] || TEMPLATES.classic
+    const componentOrder = templateConfig.componentOrder || ['chart', 'tradingDetails', 'technicalCommentary', 'disclaimer']
+
+    // Determine Header Date
+    const dateForHeader = headerDate || new Date().toISOString().split('T')[0]
+
+    // Calculate dynamic page height
+    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 800] })
+    const tempPageWidth = tempDoc.internal.pageSize.getWidth()
+
+    const dynamicPageHeight = calculateDynamicPageHeight(tempDoc, {
+      pageWidth: tempPageWidth,
+      margin,
+      rationale: rationaleToExport,
+      pdfDisclaimer,
+      imagePreview: imagePreviewData,
+      keyPoints,
+      componentOrder
+    })
+
+    const finalPageHeight = Math.max(dynamicPageHeight, 290)
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, finalPageHeight] })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+
+    const calculatedDisclaimerHeight = calculateDisclaimerHeight(tempDoc, pdfDisclaimer, tempDoc.internal.pageSize.getWidth() - 2 * 5)
+
+    // 1. Header Section
+    yPos = renderHeader(doc, {
+      pageWidth,
+      margin,
+      template: selectedTemplate,
+      tradingData,
+      keyPoints,
+      yPos,
+      raName,
+      sebiRegistration,
+      bseEnlistment,
+      headerDate: dateForHeader,
+      imagePreview: null
+    })
+
+    // 2. Render Components
+    componentOrder.forEach((componentType) => {
+      switch (componentType) {
+        case 'chart':
+          yPos = renderChart(doc, {
+            pageWidth,
+            margin,
+            imagePreview: imagePreviewData,
+            yPos,
+            keyPoints
+          })
+          break
+
+        case 'tradingDetails':
+          yPos = renderTradingDetails(doc, {
+            pageWidth,
+            margin,
+            tradingData,
+            yPos
+          })
+          break
+
+        case 'technicalCommentary':
+          yPos = renderTechnicalCommentary(doc, {
+            pageWidth,
+            margin,
+            rationale: rationaleToExport,
+            yPos,
+            pageHeight,
+            footerHeight,
+            disclaimerHeight: calculatedDisclaimerHeight
+          })
+          break
+
+        case 'disclaimer':
+          yPos = renderDisclaimer(doc, {
+            pageWidth,
+            margin,
+            pdfDisclaimer,
+            yPos,
+            pageHeight,
+            footerHeight
+          })
+          break
+
+        default:
+          console.warn(`Unknown component type: ${componentType}`)
+      }
+    })
+
+    // 3. Footer Section
+    renderFooter(doc, {
+      pageWidth,
+      pageHeight,
+      margin,
+      footerContact,
+      footerEmail,
+      footerWebsite,
+      footerAddress,
+      signature,
+      signatureDate,
+      footerBackgroundColor,
+      raName,
+      footerHeight,
+      footerImages: {
+        email: emailIconBase64,
+        phone: phoneIconBase64,
+        web: webIconBase64,
+        address: addressIconBase64
+      }
+    })
+
+    // Save PDF
+    const fileName_pdf = headerDate
+      ? `Analysis_${headerDate.replace(/\//g, '-')}.pdf`
+      : `Analysis_${new Date().toISOString().split('T')[0]}.pdf`
+    doc.save(fileName_pdf)
+  }
+
+  // Download PDF for a saved rationale
+  const downloadSavedRationale = async (sheetId, rowIndex) => {
+    const dataKey = `${sheetId}_${rowIndex}`
+    const savedData = rowRationaleData[dataKey]
+    
+    if (!savedData) {
+      alert('No saved rationale found for this row.')
+      return
+    }
+
+    // Find the sheet
+    const sheet = allSheets.find(s => s.id === sheetId)
+    if (!sheet) {
+      alert('Sheet not found.')
+      return
+    }
+
+    // Export PDF using the saved data
+    exportToPDFWithData(
+      sheet.rows,
+      rowIndex,
+      savedData,
+      savedData.imagePreview,
+      sheet.fileName,
+      sheetId
+    )
+  }
+
+  // Regenerate rationale for a saved row
+  const regenerateSavedRationale = async (sheetId, rowIndex) => {
+    // Load the sheet first
+    loadSheet(sheetId)
+    setSelectedStockIndex(rowIndex)
+    
+    // Load saved image if available
+    const dataKey = `${sheetId}_${rowIndex}`
+    const savedData = rowRationaleData[dataKey]
+    if (savedData && savedData.imagePreview) {
+      setImagePreview(savedData.imagePreview)
+      // Convert base64 data URL to File object for regeneration
+      try {
+        // Handle data URL format: data:image/png;base64,...
+        const base64Data = savedData.imagePreview.includes(',') 
+          ? savedData.imagePreview.split(',')[1] 
+          : savedData.imagePreview
+        
+        // Convert base64 to blob
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        
+        // Determine MIME type from data URL or default to image/png
+        const mimeType = savedData.imagePreview.match(/data:([^;]+);/)?.[1] || 'image/png'
+        const blob = new Blob([byteArray], { type: mimeType })
+        const file = new File([blob], 'chart-image.png', { type: mimeType })
+        setImageFile(file)
+      } catch (error) {
+        console.error('Error converting image:', error)
+        // If conversion fails, user will need to upload image again
+        alert('Please upload the chart image again for this row.')
+        setShowImageModal(true)
+        return
+      }
+    } else {
+      // No saved image, show modal for user to upload
+      setShowImageModal(true)
+      return
+    }
+    
+    // Trigger rationale generation after a short delay to ensure state is set
+    setTimeout(() => {
+      getRationale(rowIndex, false)
+    }, 200)
   }
 
   const handleImageUpload = (file) => {
@@ -667,9 +1015,59 @@ function App() {
         loadUsage(currentUser.id)
       }
 
-      // Mark row as processed
-      if (fileInfo.type === 'excel' && targetIndex !== null) {
+      // Mark row as processed and save rationale data
+      if (fileInfo.type === 'excel' && targetIndex !== null && fileInfo.sheetId) {
         setProcessedRows(prev => new Set(prev).add(targetIndex))
+
+        // Update the sheet's processed rows
+        setAllSheets(prev => prev.map(sheet => {
+          if (sheet.id === fileInfo.sheetId) {
+            if (!sheet.processedRows.includes(targetIndex)) {
+              sheet.processedRows = [...sheet.processedRows, targetIndex]
+            }
+          }
+          return sheet
+        }))
+
+        // Save rationale data to backend
+        if (fileInfo.sheetId && currentUser && currentUser.id) {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/sheets/rationales`, {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({
+                sheet_id: parseInt(fileInfo.sheetId),
+                row_index: targetIndex,
+                rationale_text: technicalCommentary,
+                rationale_result: data,
+                image_preview: imagePreview,
+                editable_rationale: technicalCommentary
+              })
+            })
+
+            if (response.ok) {
+              // Update local state
+              const dataKey = `${fileInfo.sheetId}_${targetIndex}`
+              setRowRationaleData(prev => ({
+                ...prev,
+                [dataKey]: {
+                  rationale: technicalCommentary,
+                  rationaleResult: data,
+                  imagePreview: imagePreview,
+                  editableRationale: technicalCommentary,
+                  generatedDate: new Date().toISOString()
+                }
+              }))
+              
+              // Reload sheet to update processed rows
+              await loadAllSheets()
+            } else {
+              console.error('Failed to save rationale to backend')
+            }
+          } catch (error) {
+            console.error('Error saving rationale:', error)
+          }
+        }
 
         // Auto-set Header Date from Expiry Date column
         const rowData = excelRows[targetIndex]
@@ -1166,6 +1564,162 @@ function App() {
               <p className="welcome-subtitle">Upload and analyze your trading files</p>
             </div>
 
+            {/* All Sheets Display Section with Tabs */}
+            {allSheets.length > 0 && (
+              <div className="all-sheets-section" style={{ marginBottom: '2rem', padding: '1.5rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+                  <h2 style={{ margin: 0 }}>All Uploaded Sheets ({getFilteredSheets().length})</h2>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <FiFilter style={{ color: 'var(--text-secondary)' }} />
+                    <input
+                      type="date"
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                      placeholder="Filter by date"
+                      style={{
+                        padding: '0.5rem',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--background)',
+                        color: 'var(--text-primary)'
+                      }}
+                    />
+                    {dateFilter && (
+                      <button
+                        className="btn btn-secondary btn-small"
+                        onClick={() => setDateFilter('')}
+                      >
+                        Clear Filter
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tab Navigation */}
+                {(() => {
+                  const filteredSheets = getFilteredSheets()
+                  const filteredCount = filteredSheets.length
+                  const shouldShowTabs = filteredCount > sheetsPerTab
+                  
+                  if (!shouldShowTabs) {
+                    return null
+                  }
+                  
+                  const totalTabs = Math.ceil(filteredCount / sheetsPerTab)
+                  
+                  return (
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: '0.5rem', 
+                      marginBottom: '1rem', 
+                      flexWrap: 'wrap',
+                      borderBottom: '2px solid var(--border)',
+                      paddingBottom: '0.75rem',
+                      backgroundColor: 'var(--background)',
+                      padding: '0.5rem',
+                      borderRadius: '6px'
+                    }}>
+                      {Array.from({ length: totalTabs }, (_, index) => (
+                        <button
+                          key={`tab-${index}`}
+                          onClick={() => setActiveTab(index)}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            background: activeTab === index ? 'var(--primary)' : 'var(--surface)',
+                            color: activeTab === index ? '#ffffff' : 'var(--text-primary)',
+                            cursor: 'pointer',
+                            fontWeight: activeTab === index ? 'bold' : 'normal',
+                            transition: 'all 0.2s ease',
+                            minWidth: '80px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (activeTab !== index) {
+                              e.currentTarget.style.background = 'var(--background)'
+                              e.currentTarget.style.borderColor = 'var(--primary)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (activeTab !== index) {
+                              e.currentTarget.style.background = 'var(--surface)'
+                              e.currentTarget.style.borderColor = 'var(--border)'
+                            }
+                          }}
+                        >
+                          Tab {index + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
+
+                {/* Sheets for Current Tab */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: '200px' }}>
+                  {getSheetsForCurrentTab().length > 0 ? (
+                    getSheetsForCurrentTab().map((sheet) => (
+                      <div
+                        key={sheet.id}
+                        style={{
+                          padding: '1rem',
+                          border: `2px solid ${selectedSheetId === sheet.id ? 'var(--primary)' : 'var(--border)'}`,
+                          borderRadius: '8px',
+                          background: selectedSheetId === sheet.id ? 'var(--background)' : 'var(--surface)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onClick={() => loadSheet(sheet.id)}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                              <FiFileText style={{ color: 'var(--primary)' }} />
+                              <strong>{sheet.fileName}</strong>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                              <FiCalendar />
+                              <span>Uploaded: {new Date(sheet.uploadDate).toLocaleDateString()}</span>
+                              <span style={{ margin: '0 0.5rem' }}>•</span>
+                              <span>{sheet.rows.length} rows</span>
+                              <span style={{ margin: '0 0.5rem' }}>•</span>
+                              <span>{sheet.processedRows.length} processed</span>
+                            </div>
+                          </div>
+                          {selectedSheetId === sheet.id && (
+                            <FiCheckCircle style={{ color: 'var(--primary)', fontSize: '1.25rem' }} />
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ 
+                      padding: '2rem', 
+                      textAlign: 'center', 
+                      color: 'var(--text-secondary)',
+                      fontStyle: 'italic'
+                    }}>
+                      No sheets found for this tab.
+                    </div>
+                  )}
+                </div>
+
+                {/* Tab Navigation Info */}
+                {getFilteredSheets().length > sheetsPerTab && (
+                  <div style={{ 
+                    marginTop: '1rem', 
+                    padding: '0.75rem', 
+                    background: 'var(--background)', 
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    color: 'var(--text-secondary)',
+                    textAlign: 'center'
+                  }}>
+                    Showing {activeTab * sheetsPerTab + 1}-{Math.min((activeTab + 1) * sheetsPerTab, getFilteredSheets().length)} of {getFilteredSheets().length} sheets
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="upload-section">
               <h2>Upload File for Analysis</h2>
               <div
@@ -1217,6 +1771,8 @@ function App() {
                       setImagePreview(null)
                       setShowImageModal(false)
                       setRationaleResult(null)
+                      setSelectedSheetId(null)
+                      setProcessedRows(new Set())
                       document.getElementById('fileInput').value = ''
                     }}
                   >
@@ -1259,6 +1815,9 @@ function App() {
                           <tbody>
                             {excelRows.map((row, idx) => {
                               const isProcessed = processedRows.has(idx)
+                              const dataKey = fileInfo?.sheetId ? `${fileInfo.sheetId}_${idx}` : null
+                              const hasSavedRationale = dataKey && rowRationaleData[dataKey]
+                              
                               return (
                                 <tr
                                   key={idx}
@@ -1267,31 +1826,69 @@ function App() {
                                   style={{ cursor: 'pointer' }}
                                 >
                                   <td>
-                                    {isProcessed && (
-                                      <button
-                                        className="btn-icon-only"
-                                        title="Refresh & Download PDF"
-                                        onClick={(e) => {
-                                          e.stopPropagation() // Prevent row selection
-                                          // Set selected stock index to this one so the image matches if already uploaded?
-                                          // Actually, we use the imageFile state. If the user changed the stock selection but kept the image, it might be mismatched.
-                                          // But the user workflow implies uploading an image for a selected stock.
-                                          // We should probably select this stock first.
-                                          setSelectedStockIndex(idx)
-                                          getRationale(idx, true)
-                                        }}
-                                        style={{
-                                          padding: '4px',
-                                          borderRadius: '4px',
-                                          border: '1px solid var(--border)',
-                                          background: 'var(--surface)',
-                                          cursor: 'pointer',
-                                          color: 'var(--primary)'
-                                        }}
-                                      >
-                                        <FiRefreshCw />
-                                      </button>
-                                    )}
+                                    <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                                      {hasSavedRationale && (
+                                        <>
+                                          <button
+                                            className="btn-icon-only"
+                                            title="Download PDF"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              downloadSavedRationale(fileInfo.sheetId, idx)
+                                            }}
+                                            style={{
+                                              padding: '4px',
+                                              borderRadius: '4px',
+                                              border: '1px solid var(--border)',
+                                              background: 'var(--surface)',
+                                              cursor: 'pointer',
+                                              color: 'var(--primary)'
+                                            }}
+                                          >
+                                            <FiDownload />
+                                          </button>
+                                          <button
+                                            className="btn-icon-only"
+                                            title="Regenerate Rationale"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              regenerateSavedRationale(fileInfo.sheetId, idx)
+                                            }}
+                                            style={{
+                                              padding: '4px',
+                                              borderRadius: '4px',
+                                              border: '1px solid var(--border)',
+                                              background: 'var(--surface)',
+                                              cursor: 'pointer',
+                                              color: 'var(--primary)'
+                                            }}
+                                          >
+                                            <FiRefreshCw />
+                                          </button>
+                                        </>
+                                      )}
+                                      {isProcessed && !hasSavedRationale && (
+                                        <button
+                                          className="btn-icon-only"
+                                          title="Refresh & Download PDF"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setSelectedStockIndex(idx)
+                                            getRationale(idx, true)
+                                          }}
+                                          style={{
+                                            padding: '4px',
+                                            borderRadius: '4px',
+                                            border: '1px solid var(--border)',
+                                            background: 'var(--surface)',
+                                            cursor: 'pointer',
+                                            color: 'var(--primary)'
+                                          }}
+                                        >
+                                          <FiRefreshCw />
+                                        </button>
+                                      )}
+                                    </div>
                                   </td>
                                   <td>{idx + 1}</td>
                                   {Object.keys(excelRows[0] || {}).map((key) => {
