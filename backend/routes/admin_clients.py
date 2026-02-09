@@ -11,17 +11,43 @@ from utils.database import get_db
 router = APIRouter(prefix="/admin/clients", tags=["Clients"])
 
 
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException, status
 
 @router.post("/create")
 def create_client(payload: ClientCreate, db: Session = Depends(get_db)):
+    # 1️⃣ Pre-check (nice UX)
+    existing = db.query(Client).filter(
+        Client.username == payload.username
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+
     client = Client(
         username=payload.username,
         password_hash=hash_password(payload.password)
     )
-    db.add(client)
-    db.commit()
-    db.refresh(client)
-    return {"id": client.id, "username": client.username}
+
+    # 2️⃣ DB-level safety
+    try:
+        db.add(client)
+        db.commit()
+        db.refresh(client)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+
+    return {
+        "id": client.id,
+        "username": client.username
+    }
 
 
 
