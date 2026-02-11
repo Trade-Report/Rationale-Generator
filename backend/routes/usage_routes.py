@@ -17,4 +17,32 @@ def create_usage(payload: UsageCreate, db: Session = Depends(get_db)):
             )
         )
     db.commit()
+    db.commit()
     return {"status": "usage recorded"}
+
+@router.get("/")
+def get_all_usage(db: Session = Depends(get_db)):
+    from models.client import Client
+    results = (
+        db.query(
+            Usage.id,
+            Usage.action,
+            Usage.tokens_used,
+            Usage.created_at,
+            Client.username
+        )
+        .join(Client, Usage.client_id == Client.id)
+        .order_by(Usage.created_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": r.id,
+            "action": r.action,
+            "tokens_used": r.tokens_used,
+            "created_at": r.created_at,
+            "username": r.username
+        }
+        for r in results
+    ]

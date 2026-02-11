@@ -1,0 +1,22 @@
+#!/usr/bin/expect -f
+
+set timeout 20
+set password "qz%:Ls3+6LauyU"
+set host "root@66.116.224.31"
+
+spawn ssh-copy-id -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no $host
+
+expect {
+    "password:" {
+        send "$password\r"
+        exp_continue
+    }
+    "Now try logging into the machine" {
+        send_user "\nKey added successfully.\n"
+    }
+    timeout {
+        send_user "\nTimeout waiting for password prompt.\n"
+        exit 1
+    }
+    eof
+}

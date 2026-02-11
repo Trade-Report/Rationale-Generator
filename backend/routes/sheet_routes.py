@@ -9,7 +9,7 @@ from schemas.sheet import (
 )
 from utils.auth import get_current_user_id
 
-router = APIRouter(prefix="/api/sheets", tags=["sheets"])
+router = APIRouter(prefix="/sheets", tags=["sheets"])
 
 # Sheet CRUD Operations
 @router.post("", response_model=SheetResponse, status_code=201)

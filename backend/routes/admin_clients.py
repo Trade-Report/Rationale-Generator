@@ -95,3 +95,15 @@ def get_client_by_id(client_id: int, db: Session = Depends(get_db)):
         "username": client.username,
         "usage": usage
     }
+
+@router.delete("/{client_id}")
+def delete_client(client_id: int, db: Session = Depends(get_db)):
+    client = db.query(Client).filter(Client.id == client_id).first()
+
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    db.delete(client)
+    db.commit()
+
+    return {"message": "Client deleted successfully"}

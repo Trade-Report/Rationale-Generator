@@ -1,0 +1,24 @@
+#!/usr/bin/expect -f
+
+set timeout 300
+set password "qz%:Ls3+6LauyU"
+
+# Create destination directory first
+spawn ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no root@66.116.224.31 "mkdir -p /var/www/rationale-frontend"
+expect {
+    "password:" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}
+
+# Recursively copy the public directory content
+spawn scp -r -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no admin_web/public/* root@66.116.224.31:/var/www/rationale-frontend/
+expect {
+    "password:" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}

@@ -1,0 +1,14 @@
+#!/usr/bin/expect -f
+
+set timeout 20
+set password "qz%:Ls3+6LauyU"
+
+spawn ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no root@66.116.224.31 "ls -F /root/; python3 --version; pip3 --version"
+
+expect {
+    "password:" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}

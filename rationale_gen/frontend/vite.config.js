@@ -12,6 +12,7 @@ export default defineConfig({
       }
     }
   },
+  base: '/user/',
   build: {
     outDir: '../public',
     emptyOutDir: true,

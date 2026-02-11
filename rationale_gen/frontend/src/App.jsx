@@ -68,6 +68,8 @@ export const TEMPLATES = {
   }
 }
 
+const API_BASE_URL = ''
+
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
@@ -260,7 +262,7 @@ function App() {
 
   const loadUsage = async (userId) => {
     try {
-      const response = await fetch(`/api/user/${userId}/usage`)
+      const response = await fetch(`${API_BASE_URL}/api/user/${userId}/usage`)
       if (response.ok) {
         const data = await response.json()
         setUsage(data)
@@ -284,7 +286,7 @@ function App() {
     else {
 
       try {
-        const response = await fetch('/api/login', {
+        const response = await fetch(`${API_BASE_URL}/api/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -448,7 +450,7 @@ function App() {
 
       // Save sheet to backend
       const uploadDate = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
-      
+
       try {
         const response = await fetch(`${API_BASE_URL}/api/sheets`, {
           method: 'POST',
@@ -464,7 +466,7 @@ function App() {
         if (response.ok) {
           const savedSheet = await response.json()
           const sheetId = savedSheet.id.toString()
-          
+
           // Update local state
           const newSheet = {
             id: sheetId,
@@ -473,10 +475,10 @@ function App() {
             rows: savedSheet.rows_data,
             processedRows: savedSheet.processed_rows || []
           }
-          
+
           // Reload all sheets from backend
           await loadAllSheets()
-          
+
           // Set as currently selected sheet
           setSelectedSheetId(sheetId)
           setExcelRows(normalized)
@@ -597,7 +599,7 @@ function App() {
   // Export PDF with provided data (for saved rationales)
   const exportToPDFWithData = async (sheetRows, rowIndex, rationaleData, imagePreviewData, fileName, sheetId) => {
     const rationaleToExport = rationaleData.editableRationale || rationaleData.rationale || ''
-    
+
     if (!rationaleToExport) {
       alert('No rationale data available for export.')
       return
@@ -749,7 +751,7 @@ function App() {
   const downloadSavedRationale = async (sheetId, rowIndex) => {
     const dataKey = `${sheetId}_${rowIndex}`
     const savedData = rowRationaleData[dataKey]
-    
+
     if (!savedData) {
       alert('No saved rationale found for this row.')
       return
@@ -778,7 +780,7 @@ function App() {
     // Load the sheet first
     loadSheet(sheetId)
     setSelectedStockIndex(rowIndex)
-    
+
     // Load saved image if available
     const dataKey = `${sheetId}_${rowIndex}`
     const savedData = rowRationaleData[dataKey]
@@ -787,10 +789,10 @@ function App() {
       // Convert base64 data URL to File object for regeneration
       try {
         // Handle data URL format: data:image/png;base64,...
-        const base64Data = savedData.imagePreview.includes(',') 
-          ? savedData.imagePreview.split(',')[1] 
+        const base64Data = savedData.imagePreview.includes(',')
+          ? savedData.imagePreview.split(',')[1]
           : savedData.imagePreview
-        
+
         // Convert base64 to blob
         const byteCharacters = atob(base64Data)
         const byteNumbers = new Array(byteCharacters.length)
@@ -798,7 +800,7 @@ function App() {
           byteNumbers[i] = byteCharacters.charCodeAt(i)
         }
         const byteArray = new Uint8Array(byteNumbers)
-        
+
         // Determine MIME type from data URL or default to image/png
         const mimeType = savedData.imagePreview.match(/data:([^;]+);/)?.[1] || 'image/png'
         const blob = new Blob([byteArray], { type: mimeType })
@@ -816,7 +818,7 @@ function App() {
       setShowImageModal(true)
       return
     }
-    
+
     // Trigger rationale generation after a short delay to ensure state is set
     setTimeout(() => {
       getRationale(rowIndex, false)
@@ -1058,7 +1060,7 @@ function App() {
                   generatedDate: new Date().toISOString()
                 }
               }))
-              
+
               // Reload sheet to update processed rows
               await loadAllSheets()
             } else {
@@ -1600,18 +1602,18 @@ function App() {
                   const filteredSheets = getFilteredSheets()
                   const filteredCount = filteredSheets.length
                   const shouldShowTabs = filteredCount > sheetsPerTab
-                  
+
                   if (!shouldShowTabs) {
                     return null
                   }
-                  
+
                   const totalTabs = Math.ceil(filteredCount / sheetsPerTab)
-                  
+
                   return (
-                    <div style={{ 
-                      display: 'flex', 
-                      gap: '0.5rem', 
-                      marginBottom: '1rem', 
+                    <div style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      marginBottom: '1rem',
                       flexWrap: 'wrap',
                       borderBottom: '2px solid var(--border)',
                       paddingBottom: '0.75rem',
@@ -1692,9 +1694,9 @@ function App() {
                       </div>
                     ))
                   ) : (
-                    <div style={{ 
-                      padding: '2rem', 
-                      textAlign: 'center', 
+                    <div style={{
+                      padding: '2rem',
+                      textAlign: 'center',
                       color: 'var(--text-secondary)',
                       fontStyle: 'italic'
                     }}>
@@ -1705,10 +1707,10 @@ function App() {
 
                 {/* Tab Navigation Info */}
                 {getFilteredSheets().length > sheetsPerTab && (
-                  <div style={{ 
-                    marginTop: '1rem', 
-                    padding: '0.75rem', 
-                    background: 'var(--background)', 
+                  <div style={{
+                    marginTop: '1rem',
+                    padding: '0.75rem',
+                    background: 'var(--background)',
                     borderRadius: '6px',
                     fontSize: '0.875rem',
                     color: 'var(--text-secondary)',
@@ -1817,7 +1819,7 @@ function App() {
                               const isProcessed = processedRows.has(idx)
                               const dataKey = fileInfo?.sheetId ? `${fileInfo.sheetId}_${idx}` : null
                               const hasSavedRationale = dataKey && rowRationaleData[dataKey]
-                              
+
                               return (
                                 <tr
                                   key={idx}
