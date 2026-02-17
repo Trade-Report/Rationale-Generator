@@ -7,12 +7,12 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: 'https://api.vikashbagaria.com',
         changeOrigin: true
       }
     }
   },
-  base: '/user/',
+  base: '/',
   build: {
     outDir: '../public',
     emptyOutDir: true,

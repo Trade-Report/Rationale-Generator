@@ -1,0 +1,17 @@
+{
+  "name": "rationale-generator-parent",
+  "version": "1.0.0",
+  "description": "Parent project for Rationale Generator and Admin Panel",
+  "scripts": {
+    "install-all": "npm install && npm run install-admin && npm run install-rationale",
+    "install-admin": "cd admin_web && npm install && npm run install-frontend",
+    "install-rationale": "cd rationale_gen && npm install && npm run install-frontend",
+    "build": "npm run build-admin && npm run build-rationale",
+    "build-admin": "cd admin_web && npm run build",
+    "build-rationale": "cd rationale_gen && npm run build",
+    "start-admin": "cd admin_web && npm start",
+    "start-rationale": "cd rationale_gen && npm start",
+    "docker-build": "docker-compose build",
+    "docker-up": "docker-compose up -d"
+  }
+}

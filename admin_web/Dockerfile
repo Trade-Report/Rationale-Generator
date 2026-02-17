@@ -1,4 +1,4 @@
-# Multi-stage build for rationale_gen application
+# Multi-stage build for admin_web application
 # Stage 1: Build the React frontend
 FROM node:18-alpine AS frontend-builder
 
@@ -8,7 +8,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 
 # Install frontend dependencies
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy frontend source
 COPY frontend/ ./
@@ -31,13 +31,14 @@ RUN npm ci --only=production
 COPY server.js ./
 
 # Create necessary directories
-RUN mkdir -p public uploads
+RUN mkdir -p public
 
 # Copy built frontend from stage 1
+# Note: Vite build usually outputs to 'dist'
 COPY --from=frontend-builder /app/frontend/dist ./public
 
-# Expose port
-EXPOSE 8081
+# Expose port (Cloud Run/Docker Compose will set PORT env variable)
+EXPOSE 8080
 
 # Set environment to production
 ENV NODE_ENV=production

@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors());
@@ -22,7 +22,7 @@ app.get('*', (req, res, next) => {
 });
 
 // Data file path
-const DATA_FILE = path.join(__dirname, 'data.json');
+const DATA_FILE = process.env.DATA_FILE_PATH || path.join(__dirname, 'data.json');
 
 // Initialize data file if it doesn't exist
 function initDataFile() {

@@ -36,7 +36,7 @@ const upload = multer({
 });
 
 // Data file path (shared with admin or separate)
-const DATA_FILE = path.join(__dirname, '..', 'admin_web', 'data.json');
+const DATA_FILE = process.env.DATA_FILE_PATH || path.join(__dirname, '..', 'admin_web', 'data.json');
 
 // Read data from file
 function readData() {

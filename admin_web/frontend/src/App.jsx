@@ -15,7 +15,7 @@ import {
 } from 'react-icons/fi'
 import './App.css'
 
-const API_BASE_URL = '/api'
+const API_BASE_URL = 'https://api.vikashbagaria.com/api'
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('admin_token'))

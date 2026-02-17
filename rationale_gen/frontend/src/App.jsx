@@ -68,7 +68,7 @@ export const TEMPLATES = {
   }
 }
 
-const API_BASE_URL = ''
+const API_BASE_URL = 'https://api.vikashbagaria.com'
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
