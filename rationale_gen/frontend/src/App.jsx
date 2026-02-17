@@ -68,7 +68,7 @@ export const TEMPLATES = {
   }
 }
 
-const API_BASE_URL = 'https://api.vikashbagaria.com'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.vikashbagaria.com'
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
@@ -262,7 +262,7 @@ function App() {
 
   const loadUsage = async (userId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/${userId}/usage`)
+      const response = await fetch(`${API_BASE_URL}/usage/user/${userId}/usage`)
       if (response.ok) {
         const data = await response.json()
         setUsage(data)
@@ -452,7 +452,7 @@ function App() {
       const uploadDate = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/sheets`, {
+        const response = await fetch(`${API_BASE_URL}/sheets`, {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({
@@ -919,7 +919,7 @@ function App() {
         formData.append('prompt', customPrompt)
         formData.append('plan_type', tradeData['Segment'])
 
-        response = await fetch('https://rationale-generator-2.onrender.com/gemini/analyze-with-rationale', {
+        response = await fetch(`${API_BASE_URL}/gemini/analyze-with-rationale`, {
           method: 'POST',
           headers: {
             'X-GEMINI-API-KEY': geminiApiKey
@@ -931,7 +931,7 @@ function App() {
         const formData = new FormData()
         formData.append('image', imageFile)
 
-        response = await fetch('https://rationale-generator-2.onrender.com/gemini/analyze-image-only', {
+        response = await fetch(`${API_BASE_URL}/gemini/analyze-image-only`, {
           method: 'POST',
           headers: {
             'X-GEMINI-API-KEY': geminiApiKey
@@ -1034,7 +1034,7 @@ function App() {
         // Save rationale data to backend
         if (fileInfo.sheetId && currentUser && currentUser.id) {
           try {
-            const response = await fetch(`${API_BASE_URL}/api/sheets/rationales`, {
+            const response = await fetch(`${API_BASE_URL}/sheets/rationales`, {
               method: 'POST',
               headers: getAuthHeaders(),
               body: JSON.stringify({

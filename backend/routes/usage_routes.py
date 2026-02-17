@@ -46,3 +46,17 @@ def get_all_usage(db: Session = Depends(get_db)):
         }
         for r in results
     ]
+
+@router.get("/user/{user_id}/usage")
+def get_user_usage(user_id: int, db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    
+    # Calculate usage stats for a specific user
+    total_tokens = db.query(func.sum(Usage.tokens_used)).filter(Usage.client_id == user_id).scalar() or 0
+    total_requests = db.query(Usage).filter(Usage.client_id == user_id).count()
+    
+    return {
+        "userId": user_id,
+        "usage": total_tokens,
+        "requests": total_requests
+    }
