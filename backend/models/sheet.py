@@ -17,6 +17,7 @@ class Sheet(Base):
 
     # Relationship to row rationales
     row_rationales = relationship("RowRationale", back_populates="sheet", cascade="all, delete-orphan")
+    client = relationship("Client", back_populates="sheets")
 
 class RowRationale(Base):
     __tablename__ = "row_rationales"

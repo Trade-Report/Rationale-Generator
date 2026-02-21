@@ -7,6 +7,7 @@ from models.usage import Usage
 from schemas.client import ClientCreate
 from utils.security import hash_password
 from utils.database import get_db
+from utils.auth import get_current_admin
 
 router = APIRouter(prefix="/admin/clients", tags=["Clients"])
 
@@ -15,7 +16,11 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
 @router.post("/create")
-def create_client(payload: ClientCreate, db: Session = Depends(get_db)):
+def create_client(
+    payload: ClientCreate,
+    db: Session = Depends(get_db),
+    _admin: dict = Depends(get_current_admin)
+):
     # 1️⃣ Pre-check (nice UX)
     existing = db.query(Client).filter(
         Client.username == payload.username
@@ -52,7 +57,10 @@ def create_client(payload: ClientCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/")
-def get_all_clients(db: Session = Depends(get_db)):
+def get_all_clients(
+    db: Session = Depends(get_db),
+    _admin: dict = Depends(get_current_admin)
+):
     results = (
         db.query(
             Client.id,
@@ -78,7 +86,11 @@ def get_all_clients(db: Session = Depends(get_db)):
 
 
 @router.get("/{client_id}")
-def get_client_by_id(client_id: int, db: Session = Depends(get_db)):
+def get_client_by_id(
+    client_id: int,
+    db: Session = Depends(get_db),
+    _admin: dict = Depends(get_current_admin)
+):
     client = db.query(Client).filter(Client.id == client_id).first()
 
     if not client:
@@ -96,8 +108,12 @@ def get_client_by_id(client_id: int, db: Session = Depends(get_db)):
         "usage": usage
     }
 
-@router.delete("/{client_id}")
-def delete_client(client_id: int, db: Session = Depends(get_db)):
+@router.delete("/{client_id}", status_code=204)
+def delete_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    _admin: dict = Depends(get_current_admin)
+):
     client = db.query(Client).filter(Client.id == client_id).first()
 
     if not client:
@@ -105,5 +121,4 @@ def delete_client(client_id: int, db: Session = Depends(get_db)):
 
     db.delete(client)
     db.commit()
-
-    return {"message": "Client deleted successfully"}
+    return None

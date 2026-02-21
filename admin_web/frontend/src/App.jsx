@@ -14,6 +14,7 @@ import {
   FiEye
 } from 'react-icons/fi'
 import './App.css'
+import { getAuthHeaders } from './api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.vikashbagaria.com'
 
@@ -71,7 +72,7 @@ function App() {
     try {
       setLoading(true)
       const response = await fetch(`${API_BASE_URL}/admin/clients/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: getAuthHeaders()
       })
       if (response.status === 401) {
         handleLogout()
@@ -91,10 +92,7 @@ function App() {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/clients/create`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders(true),
         body: JSON.stringify(newClient)
       })
 
@@ -122,9 +120,7 @@ function App() {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/clients/${clientId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: getAuthHeaders()
       })
 
       if (response.ok) {
@@ -144,7 +140,7 @@ function App() {
     try {
       // Fetch detailed usage for this client
       const response = await fetch(`${API_BASE_URL}/admin/clients/${client.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: getAuthHeaders()
       })
 
       if (response.ok) {

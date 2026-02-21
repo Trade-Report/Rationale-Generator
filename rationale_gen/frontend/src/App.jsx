@@ -37,6 +37,7 @@ import emailIconPath from './assets/email.png'
 import phoneIconPath from './assets/phone-call.png'
 import webIconPath from './assets/web.png'
 import addressIconPath from './assets/maps-and-flags.png'
+import { getAuthHeaders } from './api'
 
 // Template Configuration - Easy to extend and modify
 // componentOrder defines the order of components in the PDF (header and footer are always first/last)
@@ -203,7 +204,10 @@ function App() {
     if (savedUser) {
       const user = JSON.parse(savedUser)
       setCurrentUser(user)
-      loadUsage(user.id)
+      if (user?.id != null) {
+        loadUsage(user.id)
+        loadAllSheets()
+      }
     }
   }, [])
 
@@ -269,6 +273,30 @@ function App() {
       }
     } catch (error) {
       console.error('Error loading usage:', error)
+    }
+  }
+
+  const loadAllSheets = async () => {
+    try {
+      setLoadingSheets(true)
+      const response = await fetch(`${API_BASE_URL}/sheets`, {
+        headers: getAuthHeaders()
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const mapped = (data.sheets || []).map((s) => ({
+          id: String(s.id),
+          fileName: s.file_name,
+          uploadDate: s.upload_date,
+          rows: s.rows_data || [],
+          processedRows: s.processed_rows || []
+        }))
+        setAllSheets(mapped)
+      }
+    } catch (error) {
+      console.error('Error loading sheets:', error)
+    } finally {
+      setLoadingSheets(false)
     }
   }
 

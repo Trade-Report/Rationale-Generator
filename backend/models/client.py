@@ -10,3 +10,4 @@ class Client(Base):
     password_hash = Column(String)
     
     usage = relationship("Usage", back_populates="client", cascade="all, delete-orphan")
+    sheets = relationship("Sheet", back_populates="client", cascade="all, delete-orphan")
