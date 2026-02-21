@@ -303,18 +303,8 @@ function App() {
   const login = async (e) => {
     e.preventDefault()
     setLoginError('')
-    if (loginForm.username === 'vikas' || loginForm.password === 'vikas') {
-      setCurrentUser({ username: 'vikas', password: 'vikas' })
-      localStorage.setItem('currentUser', JSON.stringify({ username: 'vikas', password: 'vikas' }))
-      setUsage({ usage: 0 })
-      setLoginForm({ username: '', password: '' })
-      setActivePage('home')
-      return
-    }
-    else {
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/login`, {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -329,12 +319,16 @@ function App() {
           localStorage.setItem('currentUser', JSON.stringify(data.user))
           setUsage(data.user.usage)
           setLoginForm({ username: '', password: '' })
+          setActivePage('home')
+          if (data.user?.id != null) {
+            loadUsage(data.user.id)
+            loadAllSheets()
+          }
         } else {
-          setLoginError(data.error || 'Login failed')
+          setLoginError(data.detail || data.error || 'Login failed')
         }
-      } catch (error) {
-        setLoginError('Error connecting to server. Please try again.')
-      }
+    } catch (error) {
+      setLoginError('Error connecting to server. Please try again.')
     }
   }
 
@@ -517,11 +511,12 @@ function App() {
             sheetId: sheetId
           })
         } else {
-          throw new Error('Failed to save sheet to backend')
+          const errData = await response.json().catch(() => ({}))
+          throw new Error(errData.detail || 'Failed to save sheet to backend')
         }
       } catch (error) {
         console.error('Error saving sheet:', error)
-        alert('Failed to save sheet. Please try again.')
+        alert(error.message || 'Failed to save sheet. Please try again.')
       }
     } catch (err) {
       console.error('Excel parse error', err)
