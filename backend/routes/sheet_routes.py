@@ -88,6 +88,58 @@ def update_processed_rows(
     db.refresh(sheet)
     return sheet
 
+@router.delete("/{sheet_id}/rows/{row_index}", response_model=SheetResponse)
+def delete_sheet_row(
+    sheet_id: int,
+    row_index: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Delete a specific row from a sheet. Also removes any rationale for that row."""
+    sheet = db.query(Sheet).filter(
+        Sheet.id == sheet_id,
+        Sheet.client_id == user_id
+    ).first()
+
+    if not sheet:
+        raise HTTPException(status_code=404, detail="Sheet not found")
+
+    rows = list(sheet.rows_data) if sheet.rows_data else []
+    if row_index < 0 or row_index >= len(rows):
+        raise HTTPException(status_code=400, detail="Invalid row index")
+
+    # Delete rationale for this row
+    db.query(RowRationale).filter(
+        RowRationale.sheet_id == sheet_id,
+        RowRationale.row_index == row_index
+    ).delete()
+
+    # Decrement row_index for rationales that were after the deleted row
+    later_rationales = db.query(RowRationale).filter(
+        RowRationale.sheet_id == sheet_id,
+        RowRationale.row_index > row_index
+    ).all()
+    for r in later_rationales:
+        r.row_index -= 1
+
+    # Remove row from rows_data
+    rows.pop(row_index)
+    sheet.rows_data = rows
+
+    # Update processed_rows: remove row_index, decrement indices > row_index
+    old_processed = list(sheet.processed_rows) if sheet.processed_rows else []
+    new_processed = []
+    for i in old_processed:
+        if i < row_index:
+            new_processed.append(i)
+        elif i > row_index:
+            new_processed.append(i - 1)
+    sheet.processed_rows = new_processed
+
+    db.commit()
+    db.refresh(sheet)
+    return sheet
+
 @router.delete("/{sheet_id}", status_code=204)
 def delete_sheet(
     sheet_id: int,

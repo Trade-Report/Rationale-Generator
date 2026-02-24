@@ -15,6 +15,7 @@ import {
   FiSun,
   FiDownload,
   FiRefreshCw, // Added Refresh Icon
+  FiTrash2,
   FiFilter,
   FiCalendar
 } from 'react-icons/fi'
@@ -155,7 +156,17 @@ function App() {
     const saved = localStorage.getItem('selectedTemplate')
     return saved || 'classic' // Default to classic template
   })
-  const [customPrompt, setCustomPrompt] = useState('')
+  const INSTRUCTION_OPTIONS = [
+    'Bullish Rationale',
+    'Bearish Rationale',
+    'Price action and bullish rationale',
+    'Price action and bearish Rationale',
+    'Bullish Strategy',
+    'Bearish Strategy'
+  ]
+  const CUSTOM_OPTION = '__custom__'
+  const [instructionChoice, setInstructionChoice] = useState(INSTRUCTION_OPTIONS[0])
+  const [customPrompt, setCustomPrompt] = useState('') // Used when instructionChoice === CUSTOM_OPTION
   const [geminiApiKey, setGeminiApiKey] = useState('') // New state for API Key
   const [processedRows, setProcessedRows] = useState(new Set()) // Track processed row indices
   const [autoDownload, setAutoDownload] = useState(false) // Trigger for auto-download
@@ -848,6 +859,74 @@ function App() {
     }, 200)
   }
 
+  const handleDeleteRow = async (rowIndex) => {
+    if (!window.confirm('Are you sure you want to delete this row? This cannot be undone.')) return
+
+    const sheetId = fileInfo?.sheetId
+    if (sheetId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/sheets/${sheetId}/rows/${rowIndex}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        })
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}))
+          throw new Error(errData.detail || 'Failed to delete row')
+        }
+      } catch (error) {
+        console.error('Error deleting row:', error)
+        alert(error.message || 'Failed to delete row')
+        return
+      }
+    }
+
+    // Update local state
+    setExcelRows(prev => prev.filter((_, i) => i !== rowIndex))
+    setProcessedRows(prev => {
+      const next = new Set()
+      prev.forEach(i => {
+        if (i < rowIndex) next.add(i)
+        if (i > rowIndex) next.add(i - 1)
+      })
+      return next
+    })
+    setRowRationaleData(prev => {
+      const next = { ...prev }
+      delete next[`${sheetId}_${rowIndex}`]
+      // Rename keys for rows after deleted: idx -> idx-1 (process high to low to avoid overwrites)
+      const keysToShift = Object.keys(next)
+        .filter(key => {
+          const parts = key.split('_')
+          return parts[0] === String(sheetId) && parseInt(parts[1], 10) > rowIndex
+        })
+        .sort((a, b) => parseInt(b.split('_')[1], 10) - parseInt(a.split('_')[1], 10))
+      keysToShift.forEach(key => {
+        const idx = parseInt(key.split('_')[1], 10)
+        next[`${sheetId}_${idx - 1}`] = next[key]
+        delete next[key]
+      })
+      return next
+    })
+    setAllSheets(prev => prev.map(sheet => {
+      if (sheet.id === sheetId) {
+        const newRows = sheet.rows.filter((_, i) => i !== rowIndex)
+        const newProcessed = (sheet.processedRows || [])
+          .filter(i => i !== rowIndex)
+          .map(i => i > rowIndex ? i - 1 : i)
+        return { ...sheet, rows: newRows, processedRows: newProcessed }
+      }
+      return sheet
+    }))
+    if (selectedStockIndex === rowIndex) {
+      setSelectedStockIndex(null)
+      setImageFile(null)
+      setImagePreview(null)
+      setRationaleResult(null)
+    } else if (selectedStockIndex != null && selectedStockIndex > rowIndex) {
+      setSelectedStockIndex(selectedStockIndex - 1)
+    }
+  }
+
   const handleImageUpload = (file) => {
     setImageFile(file)
     const reader = new FileReader()
@@ -939,7 +1018,8 @@ function App() {
         const formData = new FormData()
         formData.append('trade_data', JSON.stringify(tradeData))
         formData.append('image', imageFile)
-        formData.append('prompt', customPrompt)
+        const effectivePrompt = instructionChoice === CUSTOM_OPTION ? customPrompt : instructionChoice
+        formData.append('prompt', effectivePrompt)
         formData.append('plan_type', tradeData['Segment'])
 
         response = await fetch(`${API_BASE_URL}/gemini/analyze-with-rationale`, {
@@ -1852,6 +1932,24 @@ function App() {
                                 >
                                   <td>
                                     <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                                      <button
+                                        className="btn-icon-only"
+                                        title="Delete Row"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteRow(idx)
+                                        }}
+                                        style={{
+                                          padding: '4px',
+                                          borderRadius: '4px',
+                                          border: '1px solid var(--border)',
+                                          background: 'var(--surface)',
+                                          cursor: 'pointer',
+                                          color: 'var(--danger, #dc3545)'
+                                        }}
+                                      >
+                                        <FiTrash2 />
+                                      </button>
                                       {hasSavedRationale && (
                                         <>
                                           <button
@@ -2001,24 +2099,44 @@ function App() {
                     )}
                   </button>
 
-                  {/* Custom Prompt Input for Excel Uploads */}
+                  {/* Instructions / Prompt for Excel Uploads */}
                   {fileInfo.type === 'excel' && (
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Add specific instructions for analysis..."
-                      value={customPrompt}
-                      onChange={(e) => setCustomPrompt(e.target.value)}
-                      style={{
-                        flexGrow: 1,
-                        minWidth: '200px',
-                        padding: '0.5rem',
-                        borderRadius: '0.375rem',
-                        border: '1px solid var(--border)',
-                        background: 'var(--background)',
-                        color: 'var(--text-primary)'
-                      }}
-                    />
+                    <div style={{ flexGrow: 1, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Instructions</label>
+                      <select
+                        value={instructionChoice}
+                        onChange={(e) => setInstructionChoice(e.target.value)}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '0.375rem',
+                          border: '1px solid var(--border)',
+                          background: 'var(--background)',
+                          color: 'var(--text-primary)',
+                          fontFamily: 'inherit'
+                        }}
+                      >
+                        {INSTRUCTION_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                        <option value={CUSTOM_OPTION}>Add custom</option>
+                      </select>
+                      {instructionChoice === CUSTOM_OPTION && (
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Enter your custom instructions..."
+                          value={customPrompt}
+                          onChange={(e) => setCustomPrompt(e.target.value)}
+                          style={{
+                            padding: '0.5rem',
+                            borderRadius: '0.375rem',
+                            border: '1px solid var(--border)',
+                            background: 'var(--background)',
+                            color: 'var(--text-primary)'
+                          }}
+                        />
+                      )}
+                    </div>
                   )}
 
 

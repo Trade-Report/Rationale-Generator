@@ -93,8 +93,8 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
       doc.text('Key Points', boxX + 4, yPos + 6)
 
       // Draw points
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(13)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(14)
 
       let textY = yPos + 12
       pointsToRender.forEach((point) => {
