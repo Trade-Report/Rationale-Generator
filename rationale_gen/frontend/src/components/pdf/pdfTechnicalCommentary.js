@@ -33,18 +33,18 @@ export const renderTechnicalCommentary = (doc, { pageWidth, margin, rationale, y
 const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) => {
   if (!text) return y;
 
-  // Start with base font size (14pt for body text)
-  let fontSize = 17; // Increased by 20% from 14
-  const minFontSize = 8;
+  // Base font size for technical commentary (bold, readable)
+  let fontSize = 18;
+  const minFontSize = 14;
   let contentHeight = 0;
 
-  // Calculate content height with current font size
+  // Calculate content height with current font size (must match render line height)
   const calculateHeight = (fontSize) => {
     let height = 0;
-    const lineHeight = fontSize * 0.2;
+    const lineHeight = fontSize * 0.5; // Match render line height
     const textLines = text.split('\n');
 
-    doc.setFont('sans-serif', 'bold'); // Standard serif font for body text (bold as requested)
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(fontSize);
 
     textLines.forEach((line) => {
@@ -53,7 +53,6 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
         return;
       }
 
-      // Remove markdown markers for height calculation (parse then join)
       const formatParts = parseMarkdownFormat(line);
       const cleanLine = formatParts.map(p => p.text).join('');
       const wrappedLines = doc.splitTextToSize(cleanLine, maxWidth);
@@ -98,9 +97,9 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
       });
     });
 
-    // Render words with proper formatting (no markers - they're stripped by parser)
+    // Render words with proper formatting (default to bold for technical commentary)
     words.forEach((wordObj) => {
-      const fontStyle = wordObj.bold && wordObj.italic ? 'bolditalic' : wordObj.bold ? 'bold' : wordObj.italic ? 'italic' : 'normal';
+      const fontStyle = wordObj.bold && wordObj.italic ? 'bolditalic' : wordObj.italic && !wordObj.bold ? 'italic' : 'bold';
       doc.setFont('helvetica', fontStyle);
       doc.setFontSize(fontSize);
       const wordWidth = doc.getTextWidth(wordObj.text);

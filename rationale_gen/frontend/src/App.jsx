@@ -73,7 +73,7 @@ export const TEMPLATES = {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.vikashbagaria.com'
+const API_BASE_URL = 'https://api.vikashbagaria.com'
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
@@ -1521,7 +1521,7 @@ function App() {
 
     // Create final document with calculated height (minimum 290mm to ensure reasonable page size)
     const finalPageHeight = Math.max(dynamicPageHeight, 290)
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [550, finalPageHeight] })
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [500, finalPageHeight] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
 
@@ -2462,9 +2462,10 @@ function App() {
                             title="Bold"
                             style={{
                               padding: '0.4rem 0.75rem',
-                              border: '1px solid #ccc',
+                              border: '1px solid var(--border)',
                               borderRadius: '4px',
-                              background: '#fff',
+                              background: 'var(--background)',
+                              color: 'var(--text-primary)',
                               cursor: 'pointer',
                               fontWeight: 'bold',
                               fontSize: '14px',
@@ -2479,9 +2480,10 @@ function App() {
                             title="Italic"
                             style={{
                               padding: '0.4rem 0.75rem',
-                              border: '1px solid #ccc',
+                              border: '1px solid var(--border)',
                               borderRadius: '4px',
-                              background: '#fff',
+                              background: 'var(--background)',
+                              color: 'var(--text-primary)',
                               cursor: 'pointer',
                               fontStyle: 'italic',
                               fontSize: '14px',
@@ -2496,9 +2498,10 @@ function App() {
                             title="Underline"
                             style={{
                               padding: '0.4rem 0.75rem',
-                              border: '1px solid #ccc',
+                              border: '1px solid var(--border)',
                               borderRadius: '4px',
-                              background: '#fff',
+                              background: 'var(--background)',
+                              color: 'var(--text-primary)',
                               cursor: 'pointer',
                               textDecoration: 'underline',
                               fontSize: '14px',
@@ -2827,14 +2830,14 @@ function App() {
                         title="Bold"
                         style={{
                           padding: '0.4rem 0.75rem',
-                          border: '1px solid #ccc',
+                          border: '1px solid var(--border)',
                           borderRadius: '4px',
-                          background: '#fff',
+                          background: 'var(--background)',
+                          color: 'var(--text-primary)',
                           cursor: 'pointer',
                           fontWeight: 'bold',
                           fontSize: '14px',
-                          fontFamily: 'inherit',
-                          color: 'var(--text-primary)'
+                          fontFamily: 'inherit'
                         }}
                       >
                         B
@@ -2845,14 +2848,14 @@ function App() {
                         title="Italic"
                         style={{
                           padding: '0.4rem 0.75rem',
-                          border: '1px solid #ccc',
+                          border: '1px solid var(--border)',
                           borderRadius: '4px',
-                          background: '#fff',
+                          background: 'var(--background)',
+                          color: 'var(--text-primary)',
                           cursor: 'pointer',
                           fontStyle: 'italic',
                           fontSize: '14px',
-                          fontFamily: 'inherit',
-                          color: 'var(--text-primary)'
+                          fontFamily: 'inherit'
                         }}
                       >
                         I
@@ -2863,14 +2866,14 @@ function App() {
                         title="Underline"
                         style={{
                           padding: '0.4rem 0.75rem',
-                          border: '1px solid #ccc',
+                          border: '1px solid var(--border)',
                           borderRadius: '4px',
-                          background: '#fff',
+                          background: 'var(--background)',
+                          color: 'var(--text-primary)',
                           cursor: 'pointer',
                           textDecoration: 'underline',
                           fontSize: '14px',
-                          fontFamily: 'inherit',
-                          color: 'var(--text-primary)'
+                          fontFamily: 'inherit'
                         }}
                       >
                         U
