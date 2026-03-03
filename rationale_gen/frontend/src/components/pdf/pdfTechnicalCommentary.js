@@ -1,5 +1,8 @@
 // PDF Technical Commentary Component
 // Renders the technical commentary section with title and bullet-pointed content
+// Supports **bold**, *italic*, __underline__ - markers are parsed and rendered as formatting
+
+import { parseMarkdownFormat } from './pdfTextRenderer'
 
 export const renderTechnicalCommentary = (doc, { pageWidth, margin, rationale, yPos, pageHeight, footerHeight, disclaimerHeight }) => {
   if (!rationale || !rationale.trim()) return yPos
@@ -20,34 +23,6 @@ export const renderTechnicalCommentary = (doc, { pageWidth, margin, rationale, y
   const finalY = renderTextWithDynamicFont(doc, rationale, margin, yPos, maxWidth, availableHeight)
 
   return finalY + 5
-}
-
-/**
- * Parse markdown bold syntax (**text**)
- */
-const parseMarkdownBold = (text) => {
-  const parts = []
-  const boldRegex = /\*\*(.+?)\*\*/g
-  let lastIndex = 0
-  let match
-
-  while ((match = boldRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ text: text.substring(lastIndex, match.index), isBold: false })
-    }
-    parts.push({ text: match[1], isBold: true })
-    lastIndex = match.index + match[0].length
-  }
-
-  if (lastIndex < text.length) {
-    parts.push({ text: text.substring(lastIndex), isBold: false })
-  }
-
-  if (parts.length === 0) {
-    parts.push({ text, isBold: false })
-  }
-
-  return parts
 }
 
 /**
@@ -78,8 +53,9 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
         return;
       }
 
-      // Remove markdown markers for height calculation
-      const cleanLine = line.replace(/\*\*/g, '');
+      // Remove markdown markers for height calculation (parse then join)
+      const formatParts = parseMarkdownFormat(line);
+      const cleanLine = formatParts.map(p => p.text).join('');
       const wrappedLines = doc.splitTextToSize(cleanLine, maxWidth);
       height += wrappedLines.length * lineHeight;
     });
@@ -106,46 +82,42 @@ const renderTextWithDynamicFont = (doc, text, x, y, maxWidth, availableHeight) =
       return;
     }
 
-    const parts = parseMarkdownBold(line);
-
-    // Check if line starts with a bullet to calculate indent for wrapping
-    // Standard bullet '•' or similar
-    const isBulletPoint = line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*');
-    const bulletIndent = isBulletPoint ? 10 : -10; // standard indent for wrapped lines
+    const parts = parseMarkdownFormat(line);
 
     let currentX = x;
     const endX = x + maxWidth;
 
-    // Break line into words with their style
+    // Break parts into words with their style
     let words = [];
     parts.forEach(part => {
-      // Split by spaces but keep them attached or handle normally. 
-      // Simple split by space:
-      const rawWords = part.text.split(/(\s+)/); // Keep delimiters to preserve spacing
+      const rawWords = part.text.split(/(\s+)/);
       rawWords.forEach(w => {
         if (w.length > 0) {
-          words.push({ text: w, isBold: part.isBold });
+          words.push({ text: w, bold: part.bold, italic: part.italic, underline: part.underline });
         }
       });
     });
 
-    // Render words with wrapping
-    words.forEach((wordObj, index) => {
-      // Default to bold, but respect markdown markers if they were used (though now mostly redundant if everything is bold)
-      doc.setFont('sans-serif', 'bold');
+    // Render words with proper formatting (no markers - they're stripped by parser)
+    words.forEach((wordObj) => {
+      const fontStyle = wordObj.bold && wordObj.italic ? 'bolditalic' : wordObj.bold ? 'bold' : wordObj.italic ? 'italic' : 'normal';
+      doc.setFont('helvetica', fontStyle);
       doc.setFontSize(fontSize);
       const wordWidth = doc.getTextWidth(wordObj.text);
 
-      // Check if word fits
       if (currentX + wordWidth > endX) {
         currentY += lineHeight;
         currentX = x;
-
-        // If word is just a space, ignore it on new line start (optional but good practice)
         if (!wordObj.text.trim()) return;
       }
 
       doc.text(wordObj.text, currentX, currentY);
+      if (wordObj.underline) {
+        const lineY = currentY + (doc.getLineHeight() / doc.internal.scaleFactor) * 0.15;
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.1);
+        doc.line(currentX, lineY, currentX + wordWidth, lineY);
+      }
       currentX += wordWidth;
     });
 

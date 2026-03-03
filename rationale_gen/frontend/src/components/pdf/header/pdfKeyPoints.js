@@ -5,7 +5,11 @@
 export const renderKeyPoints = (doc, { pageWidth, margin, keyPoints, yPos, headerHeight, template, imagePreview }) => {
   // Key Points Box (Top Left of Header - First element)
   if (!keyPoints || keyPoints.length === 0) return
-  
+
+  // Filter out empty/invalid points
+  const validKeyPoints = keyPoints.filter(p => p != null && String(p).trim())
+  if (validKeyPoints.length === 0) return
+
   const keyPointsX = margin
   const keyPointsY = yPos + 8 // Start at the top
   const keyPointsWidth = pageWidth * 0.48 // Use left half of header
@@ -21,7 +25,7 @@ export const renderKeyPoints = (doc, { pageWidth, margin, keyPoints, yPos, heade
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   let keyPointsYPos = keyPointsY + 7
-  const limitedKeyPoints = keyPoints.slice(0, 5) // Only take first 5 points
+  const limitedKeyPoints = validKeyPoints.slice(0, 5) // Only take first 5 points
   limitedKeyPoints.forEach((point, idx) => {
     if (keyPointsYPos < keyPointsY + maxHeight) {
       const lines = doc.splitTextToSize(`• ${point}`, keyPointsWidth - 6)

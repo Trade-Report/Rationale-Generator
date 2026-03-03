@@ -87,6 +87,7 @@ export const calculateChartHeight = (doc, imagePreview, contentWidth, keyPoints)
 
     // Also consider key points box height if it might be taller
     if (keyPoints && keyPoints.length > 0) {
+      const validKeyPoints = keyPoints.filter(p => p != null && String(p).trim())
       const gap = 10
       const boxWidth = contentWidth - chartWidth - gap
       doc.setFont('helvetica', 'bold')
@@ -100,8 +101,8 @@ export const calculateChartHeight = (doc, imagePreview, contentWidth, keyPoints)
       // Calculate for min 6, max 10 key points
       const MIN_KEY_POINTS = 6
       const MAX_KEY_POINTS = 10
-      const pointsCount = Math.max(MIN_KEY_POINTS, Math.min(keyPoints.length, MAX_KEY_POINTS))
-      const pointsToRender = keyPoints.slice(0, pointsCount)
+      const pointsCount = Math.max(MIN_KEY_POINTS, Math.min(validKeyPoints.length, MAX_KEY_POINTS))
+      const pointsToRender = validKeyPoints.slice(0, pointsCount)
 
       // Fallback points simulation if needed
       if (pointsToRender.length < MIN_KEY_POINTS) {
@@ -112,14 +113,14 @@ export const calculateChartHeight = (doc, imagePreview, contentWidth, keyPoints)
       }
 
       pointsToRender.forEach((point) => {
-        const cleanPoint = point.replace(/^\W+/, '')
+        const cleanPoint = (point || '').replace(/^\W+/, '')
         const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)
         keyPointsHeight += lines.length * 4 + 1
       })
 
       // Add extra buffer for fallback points if original count was low
-      if (keyPoints.length < MIN_KEY_POINTS) {
-        const missingPoints = MIN_KEY_POINTS - keyPoints.length
+      if (validKeyPoints.length < MIN_KEY_POINTS) {
+        const missingPoints = MIN_KEY_POINTS - validKeyPoints.length
         // Estimate 2 lines per missing point (safe buffer)
         keyPointsHeight += missingPoints * (2 * 4 + 1)
       }
@@ -146,11 +147,11 @@ export const getHeaderHeight = () => {
 }
 
 /**
- * Get the trading details height
+ * Get the trading details height (conservative for potential wrap to 2 rows)
  * @returns {number} Height in mm
  */
 export const getTradingDetailsHeight = () => {
-  return 18 // rowHeight (8) + padding (8) + some margin
+  return 28 // rowHeight (10) + wrap row + padding
 }
 
 /**

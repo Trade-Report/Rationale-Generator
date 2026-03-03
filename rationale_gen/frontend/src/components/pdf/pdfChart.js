@@ -36,6 +36,9 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
       const boxX = margin + chartWidth + gap
       const boxWidth = contentWidth - chartWidth - gap
 
+      // Filter out empty/invalid points to prevent extra bullet or index issues
+      const validKeyPoints = keyPoints.filter(p => p != null && String(p).trim())
+
       // Calculate required height based on content
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(14)
@@ -45,12 +48,12 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
       doc.setFontSize(9)
       const maxTextWidth = boxWidth - 8
 
-      // Enforce min 6, max 10 key points
+      // Enforce min 6, max 10 key points (slice is exclusive on end, so 0 to MAX gives MAX items)
       const MIN_KEY_POINTS = 6
       const MAX_KEY_POINTS = 10
 
-      // Start with available key points (max 10)
-      let pointsToRender = keyPoints.slice(0, MAX_KEY_POINTS)
+      // Start with available key points (max 10) - use valid points only
+      let pointsToRender = validKeyPoints.slice(0, MAX_KEY_POINTS)
 
       // If fewer than 6 key points, add fallback points
       if (pointsToRender.length < MIN_KEY_POINTS) {
@@ -73,9 +76,10 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
         }
       }
 
-      // Pre-calculate height for all points
+      // Pre-calculate height for all points (skip empty to match render)
       pointsToRender.forEach((point) => {
-        const cleanPoint = point.replace(/^\W+/, '')
+        const cleanPoint = (point || '').toString().trim().replace(/^\W+/, '')
+        if (!cleanPoint) return
         const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)
         totalHeight += lines.length * 4 + 1
       })
@@ -98,7 +102,8 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
 
       let textY = yPos + 12
       pointsToRender.forEach((point) => {
-        const cleanPoint = point.replace(/^\W+/, '')
+        const cleanPoint = (point || '').toString().trim().replace(/^\W+/, '')
+        if (!cleanPoint) return // skip empty points (prevents extra bullet)
         const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)
         doc.text(lines, boxX + 4, textY)
         textY += lines.length * 4 + 1

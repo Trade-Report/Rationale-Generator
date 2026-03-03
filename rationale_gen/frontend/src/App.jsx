@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   FiUpload,
   FiFileText,
@@ -14,10 +14,12 @@ import {
   FiMoon,
   FiSun,
   FiDownload,
-  FiRefreshCw, // Added Refresh Icon
+  FiRefreshCw,
   FiTrash2,
   FiFilter,
-  FiCalendar
+  FiCalendar,
+  FiPlus,
+  FiMinus
 } from 'react-icons/fi'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
@@ -71,7 +73,7 @@ export const TEMPLATES = {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.vikashbagaria.com'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
@@ -92,7 +94,10 @@ function App() {
   const [gettingRationale, setGettingRationale] = useState(false)
   const [rationaleResult, setRationaleResult] = useState(null)
   const [editableRationale, setEditableRationale] = useState('')
+  const [editableKeyPoints, setEditableKeyPoints] = useState([])
   const [showPreview, setShowPreview] = useState(false)
+  const rationaleTextareaRef = useRef(null)
+  const disclaimerTextareaRef = useRef(null)
   const [raName, setRaName] = useState(() => {
     const saved = localStorage.getItem('raName')
     return saved || ''
@@ -256,6 +261,20 @@ function App() {
     }
   }, [rationaleResult])
 
+  // Sync editableKeyPoints from rationaleResult when technical commentary is fetched
+  useEffect(() => {
+    if (rationaleResult?.output?.key_points && Array.isArray(rationaleResult.output.key_points)) {
+      setEditableKeyPoints([...rationaleResult.output.key_points])
+    } else if (rationaleResult?.output?.analysis) {
+      const text = Array.isArray(rationaleResult.output.analysis)
+        ? rationaleResult.output.analysis.join('\n')
+        : String(rationaleResult.output.analysis)
+      setEditableKeyPoints(extractKeyPoints(text))
+    } else {
+      setEditableKeyPoints([])
+    }
+  }, [rationaleResult])
+
   // Auto-download PDF when rationale is ready (triggered by Refresh)
   useEffect(() => {
     if (autoDownload && rationaleResult && editableRationale) {
@@ -274,6 +293,40 @@ function App() {
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
+  }
+
+  // Wrap selected text in textarea with formatting markers (Bold **, Italic *, Underline __)
+  const applyFormatToSelection = (before, after) => {
+    const ta = rationaleTextareaRef.current
+    if (!ta) return
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const text = editableRationale
+    const selected = text.substring(start, end)
+    if (!selected) return
+    const newText = text.substring(0, start) + before + selected + after + text.substring(end)
+    setEditableRationale(newText)
+    setTimeout(() => {
+      ta.focus()
+      ta.setSelectionRange(start + before.length, end + before.length)
+    }, 0)
+  }
+
+  const applyFormatToDisclaimer = (before, after) => {
+    const ta = disclaimerTextareaRef.current
+    if (!ta) return
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const text = pdfDisclaimer
+    const selected = text.substring(start, end)
+    if (!selected) return
+    const newText = text.substring(0, start) + before + selected + after + text.substring(end)
+    setPdfDisclaimer(newText)
+    localStorage.setItem('pdfDisclaimer', newText)
+    setTimeout(() => {
+      ta.focus()
+      ta.setSelectionRange(start + before.length, end + before.length)
+    }, 0)
   }
 
   const loadUsage = async (userId) => {
@@ -650,9 +703,11 @@ function App() {
       sheetRows
     )
 
-    // Extract key points
+    // Prefer editableKeyPoints from saved data, then API response, then extract
     let keyPoints = []
-    if (rationaleData.rationaleResult && rationaleData.rationaleResult.output && rationaleData.rationaleResult.output.key_points && Array.isArray(rationaleData.rationaleResult.output.key_points)) {
+    if (rationaleData.editableKeyPoints && Array.isArray(rationaleData.editableKeyPoints) && rationaleData.editableKeyPoints.length > 0) {
+      keyPoints = rationaleData.editableKeyPoints.filter(p => String(p).trim())
+    } else if (rationaleData.rationaleResult?.output?.key_points && Array.isArray(rationaleData.rationaleResult.output.key_points)) {
       keyPoints = rationaleData.rationaleResult.output.key_points
     } else {
       keyPoints = extractKeyPoints(rationaleToExport)
@@ -1159,6 +1214,9 @@ function App() {
                   rationaleResult: data,
                   imagePreview: imagePreview,
                   editableRationale: technicalCommentary,
+                  editableKeyPoints: (data.output?.key_points && Array.isArray(data.output.key_points))
+                    ? data.output.key_points
+                    : extractKeyPoints(technicalCommentary),
                   generatedDate: new Date().toISOString()
                 }
               }))
@@ -1431,14 +1489,10 @@ function App() {
     // Extract trading data from Excel row if available
     const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
 
-    // Extract key points from rationale
-    // Extract key points: Prefer structured API response, fallback to regex extraction
-    let keyPoints = []
-    if (rationaleResult && rationaleResult.output && rationaleResult.output.key_points && Array.isArray(rationaleResult.output.key_points)) {
-      keyPoints = rationaleResult.output.key_points
-    } else {
-      keyPoints = extractKeyPoints(rationaleToExport)
-    }
+    // Use editable key points from state, fallback to extracted
+    const keyPoints = (editableKeyPoints && editableKeyPoints.length > 0)
+      ? editableKeyPoints.filter(p => String(p).trim())
+      : extractKeyPoints(rationaleToExport)
 
     let yPos = 0
 
@@ -1451,7 +1505,7 @@ function App() {
 
     // Calculate dynamic page height based on content
     // First create a temporary document to measure content heights
-    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 800] })
+    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [550, 800] })
     const tempPageWidth = tempDoc.internal.pageSize.getWidth()
 
     // Calculate the dynamic page height
@@ -1467,7 +1521,7 @@ function App() {
 
     // Create final document with calculated height (minimum 290mm to ensure reasonable page size)
     const finalPageHeight = Math.max(dynamicPageHeight, 290)
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, finalPageHeight] })
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [550, finalPageHeight] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
 
@@ -2385,7 +2439,7 @@ function App() {
                       })()}
 
                       {/* Technical Commentary */}
-                      <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+                      <div style={{ marginBottom: '2rem', textAlign: 'left' }}>
                         <h3 style={{
                           color: '#000',
                           fontSize: '14px',
@@ -2395,7 +2449,67 @@ function App() {
                         }}>
                           Technical Commentary
                         </h3>
+                        {/* Bold, Italic, Underline toolbar */}
+                        <div style={{
+                          display: 'flex',
+                          gap: '0.5rem',
+                          marginBottom: '0.5rem',
+                          flexWrap: 'wrap'
+                        }}>
+                          <button
+                            type="button"
+                            onClick={() => applyFormatToSelection('**', '**')}
+                            title="Bold"
+                            style={{
+                              padding: '0.4rem 0.75rem',
+                              border: '1px solid #ccc',
+                              borderRadius: '4px',
+                              background: '#fff',
+                              cursor: 'pointer',
+                              fontWeight: 'bold',
+                              fontSize: '14px',
+                              fontFamily: 'inherit'
+                            }}
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyFormatToSelection('*', '*')}
+                            title="Italic"
+                            style={{
+                              padding: '0.4rem 0.75rem',
+                              border: '1px solid #ccc',
+                              borderRadius: '4px',
+                              background: '#fff',
+                              cursor: 'pointer',
+                              fontStyle: 'italic',
+                              fontSize: '14px',
+                              fontFamily: 'inherit'
+                            }}
+                          >
+                            I
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyFormatToSelection('__', '__')}
+                            title="Underline"
+                            style={{
+                              padding: '0.4rem 0.75rem',
+                              border: '1px solid #ccc',
+                              borderRadius: '4px',
+                              background: '#fff',
+                              cursor: 'pointer',
+                              textDecoration: 'underline',
+                              fontSize: '14px',
+                              fontFamily: 'inherit'
+                            }}
+                          >
+                            U
+                          </button>
+                        </div>
                         <textarea
+                          ref={rationaleTextareaRef}
                           value={editableRationale}
                           onChange={(e) => setEditableRationale(e.target.value)}
                           style={{
@@ -2413,6 +2527,83 @@ function App() {
                           }}
                           placeholder="Edit technical commentary here..."
                         />
+                        <p style={{ marginTop: '0.5rem', fontSize: '12px', color: '#666' }}>
+                          Select text and click B, I, or U to apply formatting. Use **bold**, *italic*, __underline__.
+                        </p>
+                      </div>
+
+                      {/* Key Points - Editable */}
+                      <div style={{ marginBottom: '2rem', textAlign: 'left' }}>
+                        <h3 style={{
+                          color: '#000',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                          marginBottom: '1rem',
+                          marginTop: 0
+                        }}>
+                          Key Points
+                        </h3>
+                        <p style={{ fontSize: '12px', color: '#666', marginBottom: '1rem' }}>
+                          Edit the key points below. These appear in the PDF header.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          {editableKeyPoints.map((point, idx) => (
+                            <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                              <input
+                                type="text"
+                                value={point}
+                                onChange={(e) => {
+                                  const next = [...editableKeyPoints]
+                                  next[idx] = e.target.value
+                                  setEditableKeyPoints(next)
+                                }}
+                                style={{
+                                  flex: 1,
+                                  padding: '0.5rem 0.75rem',
+                                  border: '1px solid #ddd',
+                                  borderRadius: '4px',
+                                  fontSize: '14px',
+                                  fontFamily: 'inherit'
+                                }}
+                                placeholder={`Key point ${idx + 1}`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setEditableKeyPoints(prev => prev.filter((_, i) => i !== idx))}
+                                title="Remove"
+                                style={{
+                                  padding: '0.5rem',
+                                  border: '1px solid #ccc',
+                                  borderRadius: '4px',
+                                  background: '#fff',
+                                  cursor: 'pointer',
+                                  color: '#c00'
+                                }}
+                              >
+                                <FiMinus size={16} />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setEditableKeyPoints(prev => [...prev, ''])}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              padding: '0.5rem 1rem',
+                              border: '1px dashed #999',
+                              borderRadius: '4px',
+                              background: 'transparent',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              color: '#666'
+                            }}
+                          >
+                            <FiPlus size={16} />
+                            Add key point
+                          </button>
+                        </div>
                       </div>
 
                       {/* Chart Image Preview */}
@@ -2508,7 +2699,15 @@ function App() {
                   <button
                     className="btn btn-secondary"
                     onClick={() => {
-                      setEditableRationale(rationaleResult)
+                      const text = rationaleResult?.output?.analysis
+                        ? (Array.isArray(rationaleResult.output.analysis) ? rationaleResult.output.analysis.join('\n') : rationaleResult.output.analysis)
+                        : (typeof rationaleResult === 'string' ? rationaleResult : '')
+                      setEditableRationale(text)
+                      if (rationaleResult?.output?.key_points && Array.isArray(rationaleResult.output.key_points)) {
+                        setEditableKeyPoints([...rationaleResult.output.key_points])
+                      } else {
+                        setEditableKeyPoints(extractKeyPoints(text))
+                      }
                       setShowPreview(false)
                     }}
                   >
@@ -2615,7 +2814,70 @@ function App() {
 
                   <div className="form-group">
                     <label htmlFor="pdf-disclaimer">Disclaimer</label>
+                    {/* Bold, Italic, Underline toolbar for disclaimer */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      marginBottom: '0.5rem',
+                      flexWrap: 'wrap'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatToDisclaimer('**', '**')}
+                        title="Bold"
+                        style={{
+                          padding: '0.4rem 0.75rem',
+                          border: '1px solid #ccc',
+                          borderRadius: '4px',
+                          background: '#fff',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          color: 'var(--text-primary)'
+                        }}
+                      >
+                        B
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatToDisclaimer('*', '*')}
+                        title="Italic"
+                        style={{
+                          padding: '0.4rem 0.75rem',
+                          border: '1px solid #ccc',
+                          borderRadius: '4px',
+                          background: '#fff',
+                          cursor: 'pointer',
+                          fontStyle: 'italic',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          color: 'var(--text-primary)'
+                        }}
+                      >
+                        I
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatToDisclaimer('__', '__')}
+                        title="Underline"
+                        style={{
+                          padding: '0.4rem 0.75rem',
+                          border: '1px solid #ccc',
+                          borderRadius: '4px',
+                          background: '#fff',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          color: 'var(--text-primary)'
+                        }}
+                      >
+                        U
+                      </button>
+                    </div>
                     <textarea
+                      ref={disclaimerTextareaRef}
                       id="pdf-disclaimer"
                       value={pdfDisclaimer}
                       onChange={(e) => {
@@ -2626,6 +2888,9 @@ function App() {
                       rows={5}
                       className="form-textarea"
                     />
+                    <p style={{ marginTop: '0.5rem', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      Select text and click B, I, or U to apply formatting.
+                    </p>
                   </div>
 
                   <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Footer Settings</h3>

@@ -1,102 +1,139 @@
 // PDF Trading Details Component
 // Renders the trading details row with Entry, Targets, and Stoploss in light blue boxes
+// Prevents overflow by wrapping to next row and truncating long text to fit page width
+
+const PADDING = 8
+const SPACING = 6
+const ROW_HEIGHT = 10
+
+/** Truncate text to fit maxWidth, adding "…" if truncated */
+const truncateToFit = (doc, text, maxWidth) => {
+  if (doc.getTextWidth(text) <= maxWidth) return text
+  const ellipsis = '…'
+  const ellipsisWidth = doc.getTextWidth(ellipsis)
+  let truncated = text
+  while (truncated.length > 1 && doc.getTextWidth(truncated) + ellipsisWidth > maxWidth) {
+    truncated = truncated.slice(0, -1)
+  }
+  return truncated + ellipsis
+}
+
+/** Draw a box, wrapping to next row or truncating if it would overflow */
+const drawBox = (doc, text, currentX, boxY, maxX) => {
+  const textWidth = doc.getTextWidth(text)
+  let width = textWidth + PADDING
+  const availableWidth = maxX - currentX - PADDING
+
+  let displayText = text
+  if (width > maxX - currentX && availableWidth > 15) {
+    displayText = truncateToFit(doc, text, availableWidth)
+    width = doc.getTextWidth(displayText) + PADDING
+  }
+  width = Math.min(width, maxX - currentX)
+
+  doc.setFillColor(200, 220, 255)
+  doc.roundedRect(currentX, boxY, width, ROW_HEIGHT - 2, 1, 1, 'F')
+  doc.text(displayText, currentX + 4, boxY + 6)
+  return width
+}
 
 export const renderTradingDetails = (doc, { pageWidth, margin, tradingData, yPos }) => {
-  const rowHeight = 8
-  const spacing = 6
+  const maxX = pageWidth - margin
   let currentX = margin
-  const boxY = yPos + 2
+  let boxY = yPos + 2
 
-  // Blueish theme color (light blue background)
-  doc.setFillColor(200, 220, 255) // More visible blue background
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
-  doc.setTextColor(0, 0, 0) // Black text on blue background
+  doc.setTextColor(0, 0, 0)
 
   if (tradingData.tradingName) {
-    const tradeText = `Trading Name: ${tradingData.tradingName}`
-    const tradeWidth = doc.getTextWidth(tradeText) + 8
-    doc.roundedRect(currentX, boxY, tradeWidth, rowHeight, 1, 1, 'F')
-    doc.text(tradeText, currentX + 4, boxY + 6)
-    currentX += tradeWidth + spacing
+    const text = `Trade Name: ${tradingData.tradingName}`
+    if (currentX + doc.getTextWidth(text) + PADDING > maxX && currentX > margin) {
+      currentX = margin
+      boxY += ROW_HEIGHT + 2
+    }
+    const w = drawBox(doc, text, currentX, boxY, maxX)
+    currentX += w + SPACING
   }
 
   if (tradingData.planType) {
-    const tradeText = `Plan Type: ${tradingData.planType}`
-    const tradeWidth = doc.getTextWidth(tradeText) + 8
-    doc.setFillColor(200, 220, 255)
-    doc.roundedRect(currentX, boxY, tradeWidth, rowHeight, 1, 1, 'F')
-    doc.text(tradeText, currentX + 4, boxY + 6)
-    currentX += tradeWidth + spacing
+    const text = `Segment: ${tradingData.planType}`
+    if (currentX + doc.getTextWidth(text) + PADDING > maxX && currentX > margin) {
+      currentX = margin
+      boxY += ROW_HEIGHT + 2
+    }
+    const w = drawBox(doc, text, currentX, boxY, maxX)
+    currentX += w + SPACING
   }
 
-  // Options Specific Fields
-  // When planType is "Options", concatenate Strike Price with Option Type (e.g., "390CE")
   if (tradingData.strikePrice) {
     const isOptions = tradingData.planType && tradingData.planType.toLowerCase() === 'options'
     const strikePriceDisplay = isOptions && tradingData.optionType
       ? `${tradingData.strikePrice}${tradingData.optionType}`
       : tradingData.strikePrice
     const text = `Strike Price: ${strikePriceDisplay}`
-    const width = doc.getTextWidth(text) + 8
-    doc.setFillColor(200, 220, 255)
-    doc.roundedRect(currentX, boxY, width, rowHeight, 1, 1, 'F')
-    doc.text(text, currentX + 4, boxY + 6)
-    currentX += width + spacing
+    if (currentX + doc.getTextWidth(text) + PADDING > maxX && currentX > margin) {
+      currentX = margin
+      boxY += ROW_HEIGHT + 2
+    }
+    const w = drawBox(doc, text, currentX, boxY, maxX)
+    currentX += w + SPACING
   }
 
   if (tradingData.expiryDate) {
     const text = `Expiry Date: ${tradingData.expiryDate}`
-    const width = doc.getTextWidth(text) + 8
-    doc.setFillColor(200, 220, 255)
-    doc.roundedRect(currentX, boxY, width, rowHeight, 1, 1, 'F')
-    doc.text(text, currentX + 4, boxY + 6)
-    currentX += width + spacing
+    if (currentX + doc.getTextWidth(text) + PADDING > maxX && currentX > margin) {
+      currentX = margin
+      boxY += ROW_HEIGHT + 2
+    }
+    const w = drawBox(doc, text, currentX, boxY, maxX)
+    currentX += w + SPACING
   }
 
-  // Only show Option Type separately if planType is NOT "Options" (since it's already concatenated with Strike Price)
   if (tradingData.optionType && !(tradingData.planType && tradingData.planType.toLowerCase() === 'options')) {
     const text = `Option Type: ${tradingData.optionType}`
-    const width = doc.getTextWidth(text) + 8
-    doc.setFillColor(200, 220, 255)
-    doc.roundedRect(currentX, boxY, width, rowHeight, 1, 1, 'F')
-    doc.text(text, currentX + 4, boxY + 6)
-    currentX += width + spacing
+    if (currentX + doc.getTextWidth(text) + PADDING > maxX && currentX > margin) {
+      currentX = margin
+      boxY += ROW_HEIGHT + 2
+    }
+    const w = drawBox(doc, text, currentX, boxY, maxX)
+    currentX += w + SPACING
   }
 
-  // Entry
   if (tradingData.entrylevel) {
-    const entryText = `Entry: ${tradingData.entrylevel}`
-    const entryWidth = doc.getTextWidth(entryText) + 8
-    doc.setFillColor(200, 220, 255)
-    doc.roundedRect(currentX, boxY, entryWidth, rowHeight, 1, 1, 'F')
-    doc.text(entryText, currentX + 4, boxY + 6)
-    currentX += entryWidth + spacing
+    const text = `Entry: ${tradingData.entrylevel}`
+    if (currentX + doc.getTextWidth(text) + PADDING > maxX && currentX > margin) {
+      currentX = margin
+      boxY += ROW_HEIGHT + 2
+    }
+    const w = drawBox(doc, text, currentX, boxY, maxX)
+    currentX += w + SPACING
   }
 
-  // Targets
   const targetParts = []
   if (tradingData.target1) targetParts.push(tradingData.target1)
   if (tradingData.target2) targetParts.push(tradingData.target2)
   if (tradingData.target3) targetParts.push(tradingData.target3)
   if (targetParts.length > 0) {
-    const targetText = `Targets: ${targetParts.join('-')}`
-    const targetWidth = doc.getTextWidth(targetText) + 8
-    doc.setFillColor(200, 220, 255)
-    doc.roundedRect(currentX, boxY, targetWidth, rowHeight, 1, 1, 'F')
-    doc.text(targetText, currentX + 4, boxY + 6)
-    currentX += targetWidth + spacing
+    const text = `Targets: ${targetParts.join('-')}`
+    if (currentX + doc.getTextWidth(text) + PADDING > maxX && currentX > margin) {
+      currentX = margin
+      boxY += ROW_HEIGHT + 2
+    }
+    const w = drawBox(doc, text, currentX, boxY, maxX)
+    currentX += w + SPACING
   }
 
-  // Stoploss
   if (tradingData.stoploss) {
-    const stoplossText = `Stoploss: ${tradingData.stoploss}`
-    const stoplossWidth = doc.getTextWidth(stoplossText) + 8
-    doc.setFillColor(200, 220, 255)
-    doc.roundedRect(currentX, boxY, stoplossWidth, rowHeight, 1, 1, 'F')
-    doc.text(stoplossText, currentX + 4, boxY + 6)
+    const text = `Stoploss: ${tradingData.stoploss}`
+    if (currentX + doc.getTextWidth(text) + PADDING > maxX && currentX > margin) {
+      currentX = margin
+      boxY += ROW_HEIGHT + 2
+    }
+    drawBox(doc, text, currentX, boxY, maxX)
   }
 
-  return yPos + rowHeight + 8
+  const totalHeight = boxY - yPos + ROW_HEIGHT + 6
+  return yPos + totalHeight
 }
 

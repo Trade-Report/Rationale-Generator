@@ -105,34 +105,73 @@ export const renderMarkdownText = (doc, text, x, y, maxWidth, options = {}) => {
  * @param {string} text - Text to parse
  * @returns {Array} - Array of {text, isBold} objects
  */
-const parseMarkdownBold = (text) => {
+export const parseMarkdownBold = (text) => {
   const parts = []
   const boldRegex = /\*\*(.+?)\*\*/g
   let lastIndex = 0
   let match
-  
+
   while ((match = boldRegex.exec(text)) !== null) {
-    // Add text before bold
     if (match.index > lastIndex) {
       parts.push({ text: text.substring(lastIndex, match.index), isBold: false })
     }
-    
-    // Add bold text
     parts.push({ text: match[1], isBold: true })
     lastIndex = match.index + match[0].length
   }
-  
-  // Add remaining text
+
   if (lastIndex < text.length) {
     parts.push({ text: text.substring(lastIndex), isBold: false })
   }
-  
-  // If no bold markers found, return the whole text as normal
+
   if (parts.length === 0) {
     parts.push({ text, isBold: false })
   }
-  
+
   return parts
+}
+
+/**
+ * Parse markdown: **bold**, *italic*, __underline__
+ * Order: ** first, then __, then * (to avoid * matching inside **)
+ * @returns {Array} - Array of {text, bold, italic, underline}
+ */
+export const parseMarkdownFormat = (text) => {
+  const parts = []
+  const re = /\*\*(.+?)\*\*|__(.+?)__|\*([^*]+)\*/g
+  let lastIndex = 0
+  let match
+
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const before = text.substring(lastIndex, match.index)
+      if (before) parts.push({ text: before, bold: false, italic: false, underline: false })
+    }
+    if (match[1] !== undefined) {
+      parts.push({ text: match[1], bold: true, italic: false, underline: false })
+    } else if (match[2] !== undefined) {
+      parts.push({ text: match[2], bold: false, italic: false, underline: true })
+    } else if (match[3] !== undefined) {
+      parts.push({ text: match[3], bold: false, italic: true, underline: false })
+    }
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    const after = text.substring(lastIndex)
+    if (after) parts.push({ text: after, bold: false, italic: false, underline: false })
+  }
+
+  if (parts.length === 0) {
+    parts.push({ text, bold: false, italic: false, underline: false })
+  }
+
+  // Clean orphan markers from normal parts (unmatched **, __, * that would show as literal)
+  return parts.map(p => {
+    if (!p.bold && !p.italic && !p.underline) {
+      return { ...p, text: p.text.replace(/\*\*/g, '').replace(/__/g, '').replace(/(?<!\*)\*(?!\*)/g, '') }
+    }
+    return p
+  })
 }
 
 /**
