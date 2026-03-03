@@ -30,6 +30,7 @@ import {
   renderDisclaimer,
   renderFooter,
   getTradingData,
+  getPdfFileName,
   extractKeyPoints,
   calculateDynamicPageHeight,
   calculateDisclaimerHeight
@@ -774,10 +775,8 @@ function App() {
       }
     })
 
-    // Save PDF
-    const fileName_pdf = headerDate
-      ? `Analysis_${headerDate.replace(/\//g, '-')}.pdf`
-      : `Analysis_${new Date().toISOString().split('T')[0]}.pdf`
+    // Save PDF - Trade Name + Date from Excel
+    const fileName_pdf = getPdfFileName(tradingData, dateForHeader)
     doc.save(fileName_pdf)
   }
 
@@ -1405,10 +1404,8 @@ function App() {
       }
     })
 
-    // Save PDF
-    const fileName = headerDate
-      ? `Analysis_${headerDate.replace(/\//g, '-')}.pdf`
-      : `Analysis_${new Date().toISOString().split('T')[0]}.pdf`
+    // Save PDF - Trade Name + Date (same format for image preview)
+    const fileName = getPdfFileName(tradingData, dateForHeader)
     doc.save(fileName)
   }
 
@@ -1565,10 +1562,8 @@ function App() {
       }
     })
 
-    // Save PDF
-    const fileName = headerDate
-      ? `Analysis_${headerDate.replace(/\//g, '-')}.pdf`
-      : `Analysis_${new Date().toISOString().split('T')[0]}.pdf`
+    // Save PDF - Trade Name + Date from Excel, or Analysis_Date for image-only
+    const fileName = getPdfFileName(tradingData, dateForHeader)
     doc.save(fileName)
   };
 

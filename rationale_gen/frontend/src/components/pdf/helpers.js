@@ -230,6 +230,7 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
   if (!fileInfo || fileInfo.type !== 'excel' || selectedStockIndex === null || !excelRows[selectedStockIndex]) {
     return {
       tradingName: '',
+      tradeDate: '',
       cmp: '',
       entrylevel: '',
       target1: '',
@@ -318,8 +319,11 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
     ? getValidValue(selectedRow.expiryDate || selectedRow.ExpiryDate || selectedRow['Expiry Date'] || selectedRow.expirydate || '')
     : ''
 
+  const tradeDate = getValidValue(selectedRow.Date || selectedRow.date || selectedRow['Trade Date'] || selectedRow.tradeDate || selectedRow.trade_date || '')
+
   return {
     tradingName: getValidValue(selectedRow.TradingName || selectedRow.tradingName || selectedRow['Trading Name'] || selectedRow['Script Name'] || selectedRow['Trade Name'] || selectedRow.script || ''),
+    tradeDate: tradeDate,
     cmp: getValidValue(selectedRow.CMP || selectedRow.cmp || selectedRow['Current Market Price'] || selectedRow['Current Price'] || ''),
     entrylevel: getValidValue(selectedRow.entrylevel || selectedRow.EntryLevel || selectedRow.entry_level || selectedRow['Entry Level'] || selectedRow['EntryLevel'] || selectedRow.entryPrice || selectedRow.EntryPrice || selectedRow.entry_price || selectedRow['Entry Price'] || ''),
     target1: getValidValue(selectedRow.target1 || selectedRow.Target1 || selectedRow.target_1 || selectedRow['Target 1'] || ''),
@@ -332,6 +336,17 @@ export const getTradingData = (fileInfo, selectedStockIndex, excelRows) => {
     expiryDate: expiryDate,
     optionType: optionType
   }
+}
+
+// Build PDF filename: Trade Name + Date when available, otherwise Analysis_Date
+export const getPdfFileName = (tradingData, dateForHeader) => {
+  const dateStr = (tradingData?.tradeDate || dateForHeader || new Date().toISOString().split('T')[0])
+    .toString()
+    .replace(/\//g, '-')
+    .replace(/\./g, '-')
+  const tradeName = (tradingData?.tradingName || '').toString().trim()
+  const safeName = tradeName ? tradeName.replace(/[/\\?%*:|"<>]/g, '_') : ''
+  return safeName ? `${safeName}_${dateStr}.pdf` : `Analysis_${dateStr}.pdf`
 }
 
 // Extract key points from rationale
