@@ -19,7 +19,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Rationale Generator API")
 
-# ✅ CORS (UNCHANGED)
+# ✅ CORS - allow localhost from any port + production origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -37,6 +37,7 @@ app.add_middleware(
         "https://admin.vikashbagaria.com",
         "https://api.vikashbagaria.com",
     ],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",  # Any localhost port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*", "X-GEMINI-API-KEY"],
