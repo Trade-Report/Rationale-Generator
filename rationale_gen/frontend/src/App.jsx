@@ -667,7 +667,7 @@ function App() {
     const dateForHeader = headerDate || new Date().toISOString().split('T')[0]
 
     // Calculate dynamic page height
-    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, 800] })
+    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [420, 800] })
     const tempPageWidth = tempDoc.internal.pageSize.getWidth()
 
     const dynamicPageHeight = calculateDynamicPageHeight(tempDoc, {
