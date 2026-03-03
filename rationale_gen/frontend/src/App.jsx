@@ -96,7 +96,6 @@ function App() {
   const [editableRationale, setEditableRationale] = useState('')
   const [editableKeyPoints, setEditableKeyPoints] = useState([])
   const [showPreview, setShowPreview] = useState(false)
-  const rationaleTextareaRef = useRef(null)
   const disclaimerTextareaRef = useRef(null)
   const [raName, setRaName] = useState(() => {
     const saved = localStorage.getItem('raName')
@@ -293,23 +292,6 @@ function App() {
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
-  }
-
-  // Wrap selected text in textarea with formatting markers (Bold **, Italic *, Underline __)
-  const applyFormatToSelection = (before, after) => {
-    const ta = rationaleTextareaRef.current
-    if (!ta) return
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
-    const text = editableRationale
-    const selected = text.substring(start, end)
-    if (!selected) return
-    const newText = text.substring(0, start) + before + selected + after + text.substring(end)
-    setEditableRationale(newText)
-    setTimeout(() => {
-      ta.focus()
-      ta.setSelectionRange(start + before.length, end + before.length)
-    }, 0)
   }
 
   const applyFormatToDisclaimer = (before, after) => {
@@ -2449,70 +2431,7 @@ function App() {
                         }}>
                           Technical Commentary
                         </h3>
-                        {/* Bold, Italic, Underline toolbar */}
-                        <div style={{
-                          display: 'flex',
-                          gap: '0.5rem',
-                          marginBottom: '0.5rem',
-                          flexWrap: 'wrap'
-                        }}>
-                          <button
-                            type="button"
-                            onClick={() => applyFormatToSelection('**', '**')}
-                            title="Bold"
-                            style={{
-                              padding: '0.4rem 0.75rem',
-                              border: '1px solid var(--border)',
-                              borderRadius: '4px',
-                              background: 'var(--background)',
-                              color: 'var(--text-primary)',
-                              cursor: 'pointer',
-                              fontWeight: 'bold',
-                              fontSize: '14px',
-                              fontFamily: 'inherit'
-                            }}
-                          >
-                            B
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applyFormatToSelection('*', '*')}
-                            title="Italic"
-                            style={{
-                              padding: '0.4rem 0.75rem',
-                              border: '1px solid var(--border)',
-                              borderRadius: '4px',
-                              background: 'var(--background)',
-                              color: 'var(--text-primary)',
-                              cursor: 'pointer',
-                              fontStyle: 'italic',
-                              fontSize: '14px',
-                              fontFamily: 'inherit'
-                            }}
-                          >
-                            I
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applyFormatToSelection('__', '__')}
-                            title="Underline"
-                            style={{
-                              padding: '0.4rem 0.75rem',
-                              border: '1px solid var(--border)',
-                              borderRadius: '4px',
-                              background: 'var(--background)',
-                              color: 'var(--text-primary)',
-                              cursor: 'pointer',
-                              textDecoration: 'underline',
-                              fontSize: '14px',
-                              fontFamily: 'inherit'
-                            }}
-                          >
-                            U
-                          </button>
-                        </div>
                         <textarea
-                          ref={rationaleTextareaRef}
                           value={editableRationale}
                           onChange={(e) => setEditableRationale(e.target.value)}
                           style={{
@@ -2530,9 +2449,6 @@ function App() {
                           }}
                           placeholder="Edit technical commentary here..."
                         />
-                        <p style={{ marginTop: '0.5rem', fontSize: '12px', color: '#666' }}>
-                          Select text and click B, I, or U to apply formatting. Use **bold**, *italic*, __underline__.
-                        </p>
                       </div>
 
                       {/* Key Points - Editable */}
