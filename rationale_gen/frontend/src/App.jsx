@@ -1502,7 +1502,7 @@ function App() {
     })
 
     // Create final document with calculated height (minimum 290mm to ensure reasonable page size)
-    const finalPageHeight = Math.max(dynamicPageHeight, 290) + 50
+    const finalPageHeight = Math.max(dynamicPageHeight, 290) + 100
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [500, finalPageHeight] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
