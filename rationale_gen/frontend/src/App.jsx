@@ -718,7 +718,7 @@ function App() {
       componentOrder
     })
 
-    const finalPageHeight = Math.max(dynamicPageHeight, 290)
+    const finalPageHeight = Math.max(dynamicPageHeight, 290) + 50
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, finalPageHeight] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
@@ -1353,7 +1353,7 @@ function App() {
     })
 
     // Create final document with calculated height (minimum 300mm to ensure reasonable page size)
-    const finalPageHeight = Math.max(dynamicPageHeight, 300)
+    const finalPageHeight = Math.max(dynamicPageHeight, 300) + 50
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [400, finalPageHeight] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
@@ -1487,7 +1487,7 @@ function App() {
 
     // Calculate dynamic page height based on content
     // First create a temporary document to measure content heights
-    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [550, 800] })
+    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [550, 850] })
     const tempPageWidth = tempDoc.internal.pageSize.getWidth()
 
     // Calculate the dynamic page height
@@ -1502,7 +1502,7 @@ function App() {
     })
 
     // Create final document with calculated height (minimum 290mm to ensure reasonable page size)
-    const finalPageHeight = Math.max(dynamicPageHeight, 290)
+    const finalPageHeight = Math.max(dynamicPageHeight, 290) + 50
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [500, finalPageHeight] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()

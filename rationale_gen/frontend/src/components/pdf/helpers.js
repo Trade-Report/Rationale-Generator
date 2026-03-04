@@ -208,7 +208,6 @@ export const calculateDynamicPageHeight = (doc, {
   totalHeight += getFooterHeight()
 
   // Add some buffer margin (top + bottom margins)
-  // Reduced to 10 to minimize gap between disclaimer and footer
   const bufferMargin = 10
 
   return totalHeight + bufferMargin
