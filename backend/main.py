@@ -12,10 +12,25 @@ from routes.sheet_routes import router as sheet_router
 from routes.client_auth import router as client_auth_router
 
 # ✅ DB init
+from sqlalchemy import text
 from utils.database import Base, engine
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
+
+# Migration: add downloaded_at to row_rationales if missing
+def _migrate_downloaded_at():
+    try:
+        with engine.connect() as conn:
+            if "sqlite" in str(engine.url):
+                r = conn.execute(text("PRAGMA table_info(row_rationales)"))
+                cols = [row[1] for row in r]
+                if "downloaded_at" not in cols:
+                    conn.execute(text("ALTER TABLE row_rationales ADD COLUMN downloaded_at DATETIME"))
+                    conn.commit()
+    except Exception:
+        pass
+_migrate_downloaded_at()
 
 app = FastAPI(title="Rationale Generator API")
 

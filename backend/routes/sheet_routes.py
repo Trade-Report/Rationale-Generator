@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from datetime import datetime
 from typing import List, Optional
 from utils.database import get_db
 from models.sheet import Sheet, RowRationale
@@ -259,6 +260,35 @@ def get_all_rationales_for_sheet(
     ).all()
     
     return rationales
+
+@router.post("/{sheet_id}/rows/{row_index}/downloaded")
+def mark_row_downloaded(
+    sheet_id: int,
+    row_index: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Mark that the user has downloaded the PDF for this row (for Redownload button visibility)"""
+    sheet = db.query(Sheet).filter(
+        Sheet.id == sheet_id,
+        Sheet.client_id == user_id
+    ).first()
+    
+    if not sheet:
+        raise HTTPException(status_code=404, detail="Sheet not found")
+    
+    rationale = db.query(RowRationale).filter(
+        RowRationale.sheet_id == sheet_id,
+        RowRationale.row_index == row_index
+    ).first()
+    
+    if not rationale:
+        raise HTTPException(status_code=404, detail="Rationale not found for this row")
+    
+    rationale.downloaded_at = datetime.utcnow()
+    db.commit()
+    db.refresh(rationale)
+    return {"ok": True, "downloaded_at": rationale.downloaded_at.isoformat()}
 
 @router.put("/rationales/{rationale_id}", response_model=RowRationaleResponse)
 def update_row_rationale(

@@ -29,6 +29,7 @@ class RowRationale(Base):
     rationale_result = Column(JSON)  # Full API response stored as JSON
     image_preview = Column(Text)  # Base64 encoded image
     editable_rationale = Column(Text)  # Editable version of rationale
+    downloaded_at = Column(DateTime, nullable=True)  # When user exported PDF for this row
     generated_date = Column(DateTime, server_default=func.now())
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

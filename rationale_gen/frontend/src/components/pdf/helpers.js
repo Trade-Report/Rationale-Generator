@@ -98,32 +98,15 @@ export const calculateChartHeight = (doc, imagePreview, contentWidth, keyPoints)
       doc.setFontSize(9)
       const maxTextWidth = boxWidth - 8
 
-      // Calculate for min 6, max 10 key points
-      const MIN_KEY_POINTS = 6
-      const MAX_KEY_POINTS = 10
-      const pointsCount = Math.max(MIN_KEY_POINTS, Math.min(validKeyPoints.length, MAX_KEY_POINTS))
-      const pointsToRender = validKeyPoints.slice(0, pointsCount)
-
-      // Fallback points simulation if needed
-      if (pointsToRender.length < MIN_KEY_POINTS) {
-        // We assume worst case for fallback points to be safe on height
-        // Use a conservative estimate or just rely on the count since we know the min count
-        // The actual fallback points are hardcoded in pdfChart.js, we don't need to duplicate perfectly
-        // just ensure the height calc covers them.
-      }
+      const MAX_KEY_POINTS = 6
+      const pointsToRender = validKeyPoints.slice(0, MAX_KEY_POINTS)
 
       pointsToRender.forEach((point) => {
         const cleanPoint = (point || '').replace(/^\W+/, '')
+        if (!cleanPoint) return
         const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)
         keyPointsHeight += lines.length * 4 + 1
       })
-
-      // Add extra buffer for fallback points if original count was low
-      if (validKeyPoints.length < MIN_KEY_POINTS) {
-        const missingPoints = MIN_KEY_POINTS - validKeyPoints.length
-        // Estimate 2 lines per missing point (safe buffer)
-        keyPointsHeight += missingPoints * (2 * 4 + 1)
-      }
 
       keyPointsHeight += 4 // Bottom padding
 

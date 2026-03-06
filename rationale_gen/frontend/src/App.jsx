@@ -612,8 +612,8 @@ function App() {
     }
   }
 
-  // Load a sheet from allSheets
-  const loadSheet = (sheetId) => {
+  // Load a sheet from allSheets and fetch rationales from backend
+  const loadSheet = async (sheetId) => {
     const sheet = allSheets.find(s => s.id === sheetId)
     if (sheet) {
       setSelectedSheetId(sheetId)
@@ -631,6 +631,41 @@ function App() {
       setImageFile(null)
       setImagePreview(null)
       setRationaleResult(null)
+      // Fetch rationales from backend and merge into rowRationaleData (incl. downloaded state)
+      try {
+        const res = await fetch(`${API_BASE_URL}/sheets/rationales/sheet/${sheetId}`, {
+          headers: getAuthHeaders()
+        })
+        if (res.ok) {
+          const rationales = await res.json()
+          const processedIndices = rationales.map(r => r.row_index)
+          setRowRationaleData(prev => {
+            const next = { ...prev }
+            rationales.forEach((r) => {
+              const key = `${r.sheet_id}_${r.row_index}`
+              next[key] = {
+                rationale: r.rationale_text,
+                rationaleResult: r.rationale_result,
+                imagePreview: r.image_preview,
+                editableRationale: r.editable_rationale || r.rationale_text,
+                editableKeyPoints: (r.rationale_result?.output?.key_points && Array.isArray(r.rationale_result.output.key_points))
+                  ? r.rationale_result.output.key_points
+                  : extractKeyPoints(r.editable_rationale || r.rationale_text),
+                generatedDate: r.generated_date,
+                downloadedAt: r.downloaded_at || null
+              }
+            })
+            return next
+          })
+          // Sync processed count in allSheets (rationales are source of truth)
+          setAllSheets(prev => prev.map(s => s.id === String(sheetId)
+            ? { ...s, processedRows: processedIndices }
+            : s))
+          setProcessedRows(new Set(processedIndices))
+        }
+      } catch (e) {
+        console.error('Failed to fetch rationales for sheet:', e)
+      }
     }
   }
 
@@ -843,12 +878,32 @@ function App() {
       sheet.fileName,
       sheetId
     )
+
+    // Mark row as downloaded on backend and update local state for Redownload button
+    try {
+      const res = await fetch(`${API_BASE_URL}/sheets/${sheetId}/rows/${rowIndex}/downloaded`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setRowRationaleData(prev => ({
+          ...prev,
+          [dataKey]: {
+            ...savedData,
+            downloadedAt: data.downloaded_at || new Date().toISOString()
+          }
+        }))
+      }
+    } catch (e) {
+      console.error('Failed to mark row as downloaded:', e)
+    }
   }
 
   // Regenerate rationale for a saved row
   const regenerateSavedRationale = async (sheetId, rowIndex) => {
-    // Load the sheet first
-    loadSheet(sheetId)
+    // Load the sheet first (fetches rationales from backend)
+    await loadSheet(sheetId)
     setSelectedStockIndex(rowIndex)
 
     // Load saved image if available
@@ -1160,15 +1215,12 @@ function App() {
       if (fileInfo.type === 'excel' && targetIndex !== null && fileInfo.sheetId) {
         setProcessedRows(prev => new Set(prev).add(targetIndex))
 
-        // Update the sheet's processed rows
-        setAllSheets(prev => prev.map(sheet => {
-          if (sheet.id === fileInfo.sheetId) {
-            if (!sheet.processedRows.includes(targetIndex)) {
-              sheet.processedRows = [...sheet.processedRows, targetIndex]
-            }
-          }
-          return sheet
-        }))
+        // Update the sheet's processed rows (immutable)
+        setAllSheets(prev => prev.map(sheet =>
+          sheet.id === String(fileInfo.sheetId) && !(sheet.processedRows || []).includes(targetIndex)
+            ? { ...sheet, processedRows: [...(sheet.processedRows || []), targetIndex] }
+            : sheet
+        ))
 
         // Save rationale data to backend
         if (fileInfo.sheetId && currentUser && currentUser.id) {
@@ -1199,7 +1251,8 @@ function App() {
                   editableKeyPoints: (data.output?.key_points && Array.isArray(data.output.key_points))
                     ? data.output.key_points
                     : extractKeyPoints(technicalCommentary),
-                  generatedDate: new Date().toISOString()
+                  generatedDate: new Date().toISOString(),
+                  downloadedAt: prev[dataKey]?.downloadedAt ?? null
                 }
               }))
 
@@ -1471,9 +1524,9 @@ function App() {
     // Extract trading data from Excel row if available
     const tradingData = getTradingData(fileInfo, selectedStockIndex, excelRows)
 
-    // Use editable key points from state, fallback to extracted
-    const keyPoints = (editableKeyPoints && editableKeyPoints.length > 0)
-      ? editableKeyPoints.filter(p => String(p).trim())
+    // Use editable key points when rationale was fetched (respect user edits including removals)
+    const keyPoints = (rationaleResult && Array.isArray(editableKeyPoints))
+      ? editableKeyPoints.filter(p => p != null && String(p).trim())
       : extractKeyPoints(rationaleToExport)
 
     let yPos = 0
@@ -1485,31 +1538,12 @@ function App() {
     // Determine Header Date (User Edited or Default)
     const dateForHeader = headerDate || new Date().toISOString().split('T')[0]
 
-    // Calculate dynamic page height based on content
-    // First create a temporary document to measure content heights
-    const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [550, 850] })
-    const tempPageWidth = tempDoc.internal.pageSize.getWidth()
-
-    // Calculate the dynamic page height
-    const dynamicPageHeight = calculateDynamicPageHeight(tempDoc, {
-      pageWidth: tempPageWidth,
-      margin,
-      rationale: rationaleToExport,
-      pdfDisclaimer,
-      imagePreview,
-      keyPoints,
-      componentOrder
-    })
-
-    // Create final document with calculated height (minimum 290mm to ensure reasonable page size)
-    const finalPageHeight = Math.max(dynamicPageHeight, 290) + 100
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [500, finalPageHeight] })
+    // Fixed page size: 3× A4 ratio (A4 = 210×297mm, so 630×891mm)
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [420, 594] })
     const pageWidth = doc.internal.pageSize.getWidth()
     const pageHeight = doc.internal.pageSize.getHeight()
 
-    // Calculate disclaimer height explicitly to pass to technical commentary
-    // This allows technical commentary to know exactly how much space to leave
-    const calculatedDisclaimerHeight = calculateDisclaimerHeight(tempDoc, pdfDisclaimer, tempDoc.internal.pageSize.getWidth() - 2 * 5) // 5 is disclaimer margin
+    const calculatedDisclaimerHeight = calculateDisclaimerHeight(doc, pdfDisclaimer, pageWidth - 2 * 5)
 
     // 1. Header Section
     yPos = renderHeader(doc, {
@@ -1601,6 +1635,37 @@ function App() {
     // Save PDF - Trade Name + Date from Excel, or Analysis_Date for image-only
     const fileName = getPdfFileName(tradingData, dateForHeader)
     doc.save(fileName)
+
+    // Mark row as downloaded when exporting from Excel flow (for Redownload button)
+    if (fileInfo?.sheetId != null && selectedStockIndex != null) {
+      const sheetId = fileInfo.sheetId
+      const rowIndex = selectedStockIndex
+      const dataKey = `${sheetId}_${rowIndex}`
+      try {
+        const res = await fetch(`${API_BASE_URL}/sheets/${sheetId}/rows/${rowIndex}/downloaded`, {
+          method: 'POST',
+          headers: getAuthHeaders()
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setRowRationaleData(prev => ({
+            ...prev,
+            [dataKey]: {
+              ...(prev[dataKey] || {}),
+              rationale: prev[dataKey]?.rationale ?? rationaleToExport,
+              rationaleResult: prev[dataKey]?.rationaleResult ?? rationaleResult,
+              imagePreview: prev[dataKey]?.imagePreview ?? imagePreview,
+              editableRationale: prev[dataKey]?.editableRationale ?? rationaleToExport,
+              editableKeyPoints: prev[dataKey]?.editableKeyPoints ?? keyPoints,
+              generatedDate: prev[dataKey]?.generatedDate ?? new Date().toISOString(),
+              downloadedAt: data.downloaded_at || new Date().toISOString()
+            }
+          }))
+        }
+      } catch (e) {
+        console.error('Failed to mark row as downloaded:', e)
+      }
+    }
   };
 
   if (!currentUser) {
@@ -1985,21 +2050,28 @@ function App() {
                                         <>
                                           <button
                                             className="btn-icon-only"
-                                            title="Download PDF"
+                                            title={rowRationaleData[dataKey]?.downloadedAt ? 'Redownload PDF' : 'Download PDF'}
                                             onClick={(e) => {
                                               e.stopPropagation()
                                               downloadSavedRationale(fileInfo.sheetId, idx)
                                             }}
                                             style={{
-                                              padding: '4px',
+                                              padding: '4px 6px',
                                               borderRadius: '4px',
                                               border: '1px solid var(--border)',
                                               background: 'var(--surface)',
                                               cursor: 'pointer',
-                                              color: 'var(--primary)'
+                                              color: 'var(--primary)',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '0.25rem',
+                                              fontSize: '0.75rem'
                                             }}
                                           >
                                             <FiDownload />
+                                            {rowRationaleData[dataKey]?.downloadedAt && (
+                                              <span style={{ whiteSpace: 'nowrap' }}>Redownload</span>
+                                            )}
                                           </button>
                                           <button
                                             className="btn-icon-only"

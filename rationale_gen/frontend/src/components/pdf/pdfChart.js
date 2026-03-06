@@ -48,33 +48,9 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
       doc.setFontSize(9)
       const maxTextWidth = boxWidth - 8
 
-      // Enforce min 6, max 10 key points (slice is exclusive on end, so 0 to MAX gives MAX items)
-      const MIN_KEY_POINTS = 6
-      const MAX_KEY_POINTS = 10
-
-      // Start with available key points (max 10) - use valid points only
+      // Use only the key points passed in - no fallbacks (respect user edits/removals)
+      const MAX_KEY_POINTS = 6
       let pointsToRender = validKeyPoints.slice(0, MAX_KEY_POINTS)
-
-      // If fewer than 6 key points, add fallback points
-      if (pointsToRender.length < MIN_KEY_POINTS) {
-        const fallbackPoints = [
-          'Monitor price action for trend confirmation.',
-          'Watch for volume changes at key levels.',
-          'Risk management should be maintained.',
-          'Key support and resistance levels are critical.',
-          'Market momentum should guide entry timing.',
-          'Volatility conditions may impact trade execution.'
-        ]
-
-        let index = 0
-        while (pointsToRender.length < MIN_KEY_POINTS && index < fallbackPoints.length) {
-          // Only add if not already present
-          if (!pointsToRender.includes(fallbackPoints[index])) {
-            pointsToRender.push(fallbackPoints[index])
-          }
-          index++
-        }
-      }
 
       // Pre-calculate height for all points (skip empty to match render)
       pointsToRender.forEach((point) => {
@@ -84,7 +60,7 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
         totalHeight += lines.length * 4 + 1
       })
 
-      totalHeight += 4 // Bottom padding
+      totalHeight += 12 // Bottom padding
 
       // Draw dynamic background
       doc.setFillColor(230, 240, 255) // Light blue
@@ -106,7 +82,7 @@ export const renderChart = (doc, { pageWidth, margin, imagePreview, yPos, keyPoi
         if (!cleanPoint) return // skip empty points (prevents extra bullet)
         const lines = doc.splitTextToSize('• ' + cleanPoint, maxTextWidth)
         doc.text(lines, boxX + 4, textY)
-        textY += lines.length * 4 + 1
+        textY += lines.length * 4 + 3
       })
     }
 

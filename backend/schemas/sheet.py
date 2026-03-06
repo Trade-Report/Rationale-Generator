@@ -50,6 +50,7 @@ class RowRationaleResponse(BaseModel):
     rationale_result: Optional[Dict[str, Any]] = None
     image_preview: Optional[str] = None
     editable_rationale: Optional[str] = None
+    downloaded_at: Optional[datetime] = None
     generated_date: datetime
     created_at: datetime
     updated_at: datetime
