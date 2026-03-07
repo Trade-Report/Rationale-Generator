@@ -73,7 +73,17 @@ export const TEMPLATES = {
   }
 }
 
-const API_BASE_URL = 'https://api.vikashbagaria.com'
+// Use same-origin /api to avoid CORS: vikashbagaria.com + localhost (vite proxy)
+// Only use api subdomain when neither applies (e.g. admin subdomain)
+function getApiBaseUrl() {
+  if (typeof window === 'undefined') return 'https://api.vikashbagaria.com'
+  const h = window.location.hostname
+  if (h === 'vikashbagaria.com' || h === 'www.vikashbagaria.com' || h === 'localhost' || h === '127.0.0.1') {
+    return `${window.location.origin}/api`
+  }
+  return 'https://api.vikashbagaria.com'
+}
+const API_BASE_URL = getApiBaseUrl()
 
 /** Parse date string (M/D/YY, D/M/YYYY, etc.) to YYYY-MM-DD for HTML date inputs */
 function parseToYYYYMMDD(val) {
@@ -211,6 +221,7 @@ function App() {
   const [activeTab, setActiveTab] = useState(0) // Active tab index for sheets
   const [sheetsPerTab] = useState(5) // Number of sheets to show per tab
   const [rowRationaleData, setRowRationaleData] = useState({}) // Will be loaded from backend
+  const [downloadedRowKeys, setDownloadedRowKeys] = useState(new Set()) // Redundant source for Redownload visibility
   const [loadingSheets, setLoadingSheets] = useState(false)
 
   const [emailIconBase64, setEmailIconBase64] = useState(null)
@@ -432,6 +443,7 @@ function App() {
     // Clear sheet/rationale state so it reloads fresh on next login
     setAllSheets([])
     setRowRationaleData({})
+    setDownloadedRowKeys(new Set())
     setProcessedRows(new Set())
     setSelectedSheetId(null)
     setEditableRationale('')
@@ -706,6 +718,11 @@ function App() {
             ? { ...s, processedRows: processedIndices }
             : s))
           setProcessedRows(new Set(processedIndices))
+          // Populate downloadedRowKeys from rationales that have downloaded_at
+          const downloadedKeys = rationales
+            .filter(r => r.downloaded_at)
+            .map(r => `${r.sheet_id}_${r.row_index}`)
+          setDownloadedRowKeys(prev => new Set([...prev, ...downloadedKeys]))
         }
       } catch (e) {
         console.error('Failed to fetch rationales for sheet:', e)
@@ -913,6 +930,17 @@ function App() {
       return
     }
 
+    // Optimistic update: show Redownload button immediately
+    const nowIso = new Date().toISOString()
+    setDownloadedRowKeys(prev => new Set(prev).add(dataKey))
+    setRowRationaleData(prev => ({
+      ...prev,
+      [dataKey]: {
+        ...savedData,
+        downloadedAt: nowIso
+      }
+    }))
+
     // Export PDF using the saved data
     exportToPDFWithData(
       sheet.rows,
@@ -923,7 +951,7 @@ function App() {
       sheetId
     )
 
-    // Mark row as downloaded on backend and update local state for Redownload button
+    // Persist downloaded_at to backend (for next session / other devices)
     try {
       const res = await fetch(`${API_BASE_URL}/sheets/${sheetId}/rows/${rowIndex}/downloaded`, {
         method: 'POST',
@@ -931,11 +959,13 @@ function App() {
       })
       if (res.ok) {
         const data = await res.json()
+        // Sync with server timestamp if different
+        const serverAt = data.downloaded_at || nowIso
         setRowRationaleData(prev => ({
           ...prev,
           [dataKey]: {
-            ...savedData,
-            downloadedAt: data.downloaded_at || new Date().toISOString()
+            ...prev[dataKey],
+            downloadedAt: serverAt
           }
         }))
       }
@@ -1257,16 +1287,7 @@ function App() {
 
       // Mark row as processed and save rationale data
       if (fileInfo.type === 'excel' && targetIndex !== null && fileInfo.sheetId) {
-        setProcessedRows(prev => new Set(prev).add(targetIndex))
-
-        // Update the sheet's processed rows (immutable)
-        setAllSheets(prev => prev.map(sheet =>
-          sheet.id === String(fileInfo.sheetId) && !(sheet.processedRows || []).includes(targetIndex)
-            ? { ...sheet, processedRows: [...(sheet.processedRows || []), targetIndex] }
-            : sheet
-        ))
-
-        // Save rationale data to backend
+        // Save rationale data to backend FIRST - only update local state on success
         if (fileInfo.sheetId && currentUser && currentUser.id) {
           try {
             const response = await fetch(`${API_BASE_URL}/sheets/rationales`, {
@@ -1283,7 +1304,6 @@ function App() {
             })
 
             if (response.ok) {
-              // Update local state
               const dataKey = `${fileInfo.sheetId}_${targetIndex}`
               setRowRationaleData(prev => ({
                 ...prev,
@@ -1299,15 +1319,30 @@ function App() {
                   downloadedAt: prev[dataKey]?.downloadedAt ?? null
                 }
               }))
-
-              // Reload sheet to update processed rows
+              setProcessedRows(prev => new Set(prev).add(targetIndex))
+              setAllSheets(prev => prev.map(sheet =>
+                sheet.id === String(fileInfo.sheetId) && !(sheet.processedRows || []).includes(targetIndex)
+                  ? { ...sheet, processedRows: [...(sheet.processedRows || []), targetIndex] }
+                  : sheet
+              ))
               await loadAllSheets()
             } else {
-              console.error('Failed to save rationale to backend')
+              const errData = await response.json().catch(() => ({}))
+              console.error('Failed to save rationale to backend:', errData)
+              alert('Failed to save rationale. Processed count may not persist after logout. Check your connection and try again.')
             }
           } catch (error) {
             console.error('Error saving rationale:', error)
+            alert('Failed to save rationale to server. Processed count may not persist after logout. Check your connection and try again.')
           }
+        } else {
+          // No user/sheetId - still update local state for current session
+          setProcessedRows(prev => new Set(prev).add(targetIndex))
+          setAllSheets(prev => prev.map(sheet =>
+            sheet.id === String(fileInfo.sheetId) && !(sheet.processedRows || []).includes(targetIndex)
+              ? { ...sheet, processedRows: [...(sheet.processedRows || []), targetIndex] }
+              : sheet
+          ))
         }
 
         // Auto-set Header Date from Expiry Date column (must be YYYY-MM-DD for HTML date inputs)
@@ -1682,6 +1717,25 @@ function App() {
       const sheetId = fileInfo.sheetId
       const rowIndex = selectedStockIndex
       const dataKey = `${sheetId}_${rowIndex}`
+      const nowIso = new Date().toISOString()
+
+      // Optimistic update: show Redownload button immediately (before API call)
+      setDownloadedRowKeys(prev => new Set(prev).add(dataKey))
+      setRowRationaleData(prev => ({
+        ...prev,
+        [dataKey]: {
+          ...(prev[dataKey] || {}),
+          rationale: prev[dataKey]?.rationale ?? rationaleToExport,
+          rationaleResult: prev[dataKey]?.rationaleResult ?? rationaleResult,
+          imagePreview: prev[dataKey]?.imagePreview ?? imagePreview,
+          editableRationale: prev[dataKey]?.editableRationale ?? rationaleToExport,
+          editableKeyPoints: prev[dataKey]?.editableKeyPoints ?? keyPoints,
+          generatedDate: prev[dataKey]?.generatedDate ?? new Date().toISOString(),
+          downloadedAt: nowIso
+        }
+      }))
+
+      // Persist to backend (for next session)
       try {
         const res = await fetch(`${API_BASE_URL}/sheets/${sheetId}/rows/${rowIndex}/downloaded`, {
           method: 'POST',
@@ -1689,17 +1743,12 @@ function App() {
         })
         if (res.ok) {
           const data = await res.json()
+          const serverAt = data.downloaded_at || nowIso
           setRowRationaleData(prev => ({
             ...prev,
             [dataKey]: {
               ...(prev[dataKey] || {}),
-              rationale: prev[dataKey]?.rationale ?? rationaleToExport,
-              rationaleResult: prev[dataKey]?.rationaleResult ?? rationaleResult,
-              imagePreview: prev[dataKey]?.imagePreview ?? imagePreview,
-              editableRationale: prev[dataKey]?.editableRationale ?? rationaleToExport,
-              editableKeyPoints: prev[dataKey]?.editableKeyPoints ?? keyPoints,
-              generatedDate: prev[dataKey]?.generatedDate ?? new Date().toISOString(),
-              downloadedAt: data.downloaded_at || new Date().toISOString()
+              downloadedAt: serverAt
             }
           }))
         }
@@ -2090,8 +2139,9 @@ function App() {
                                       {hasSavedRationale && (
                                         <>
                                           <button
+                                            key={`dl-${dataKey}-${downloadedRowKeys.has(dataKey) || rowRationaleData[dataKey]?.downloadedAt ? 'downloaded' : 'new'}`}
                                             className="btn-icon-only"
-                                            title={rowRationaleData[dataKey]?.downloadedAt ? 'Redownload PDF' : 'Download PDF'}
+                                            title={(downloadedRowKeys.has(dataKey) || rowRationaleData[dataKey]?.downloadedAt) ? 'Redownload PDF' : 'Download PDF'}
                                             onClick={(e) => {
                                               e.stopPropagation()
                                               downloadSavedRationale(fileInfo.sheetId, idx)
@@ -2110,7 +2160,7 @@ function App() {
                                             }}
                                           >
                                             <FiDownload />
-                                            {rowRationaleData[dataKey]?.downloadedAt && (
+                                            {(downloadedRowKeys.has(dataKey) || rowRationaleData[dataKey]?.downloadedAt) && (
                                               <span style={{ whiteSpace: 'nowrap' }}>Redownload</span>
                                             )}
                                           </button>
