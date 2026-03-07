@@ -38,7 +38,8 @@ def get_all_sheets(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    """Get all sheets for the current user, optionally filtered by date"""
+    """Get all sheets for the current user, optionally filtered by date.
+    processed_rows is derived from actual rationales (source of truth)."""
     query = db.query(Sheet).filter(Sheet.client_id == user_id)
     
     if date_filter:
@@ -46,10 +47,22 @@ def get_all_sheets(
     
     sheets = query.order_by(Sheet.created_at.desc()).all()
     
-    return SheetListResponse(
-        sheets=[SheetResponse.model_validate(sheet) for sheet in sheets],
-        total=len(sheets)
-    )
+    # Derive processed_rows from rationales (source of truth) for accurate counts
+    sheet_ids = [s.id for s in sheets]
+    rationale_rows = db.query(RowRationale.sheet_id, RowRationale.row_index).filter(
+        RowRationale.sheet_id.in_(sheet_ids)
+    ).all()
+    processed_by_sheet = {}
+    for sid, ridx in rationale_rows:
+        processed_by_sheet.setdefault(sid, []).append(ridx)
+    
+    result = []
+    for sheet in sheets:
+        data = SheetResponse.model_validate(sheet)
+        data.processed_rows = sorted(processed_by_sheet.get(sheet.id, []))
+        result.append(data)
+    
+    return SheetListResponse(sheets=result, total=len(sheets))
 
 @router.get("/{sheet_id}", response_model=SheetResponse)
 def get_sheet(
@@ -204,13 +217,36 @@ def create_row_rationale(
         )
         db.add(db_rationale)
         
-        # Update sheet's processed rows
-        if rationale_data.row_index not in sheet.processed_rows:
-            sheet.processed_rows.append(rationale_data.row_index)
+        # Update sheet's processed rows (reassign to ensure SQLAlchemy persists JSON mutation)
+        current = list(sheet.processed_rows or [])
+        if rationale_data.row_index not in current:
+            sheet.processed_rows = current + [rationale_data.row_index]
         
         db.commit()
         db.refresh(db_rationale)
         return db_rationale
+
+@router.get("/rationales/sheet/{sheet_id}", response_model=List[RowRationaleResponse])
+def get_all_rationales_for_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Get all rationales for a specific sheet"""
+    # Verify sheet belongs to user
+    sheet = db.query(Sheet).filter(
+        Sheet.id == sheet_id,
+        Sheet.client_id == user_id
+    ).first()
+    
+    if not sheet:
+        raise HTTPException(status_code=404, detail="Sheet not found")
+    
+    rationales = db.query(RowRationale).filter(
+        RowRationale.sheet_id == sheet_id
+    ).all()
+    
+    return rationales
 
 @router.get("/rationales/{sheet_id}/{row_index}", response_model=RowRationaleResponse)
 def get_row_rationale(
@@ -238,28 +274,6 @@ def get_row_rationale(
         raise HTTPException(status_code=404, detail="Rationale not found for this row")
     
     return rationale
-
-@router.get("/rationales/sheet/{sheet_id}", response_model=List[RowRationaleResponse])
-def get_all_rationales_for_sheet(
-    sheet_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
-):
-    """Get all rationales for a specific sheet"""
-    # Verify sheet belongs to user
-    sheet = db.query(Sheet).filter(
-        Sheet.id == sheet_id,
-        Sheet.client_id == user_id
-    ).first()
-    
-    if not sheet:
-        raise HTTPException(status_code=404, detail="Sheet not found")
-    
-    rationales = db.query(RowRationale).filter(
-        RowRationale.sheet_id == sheet_id
-    ).all()
-    
-    return rationales
 
 @router.post("/{sheet_id}/rows/{row_index}/downloaded")
 def mark_row_downloaded(
@@ -347,9 +361,10 @@ def delete_row_rationale(
     if not sheet:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Remove from processed rows
-    if rationale.row_index in sheet.processed_rows:
-        sheet.processed_rows.remove(rationale.row_index)
+    # Remove from processed rows (reassign to ensure SQLAlchemy persists JSON mutation)
+    current = list(sheet.processed_rows or [])
+    if rationale.row_index in current:
+        sheet.processed_rows = [i for i in current if i != rationale.row_index]
     
     db.delete(rationale)
     db.commit()

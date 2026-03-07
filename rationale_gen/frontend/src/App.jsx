@@ -75,6 +75,36 @@ export const TEMPLATES = {
 
 const API_BASE_URL = 'https://api.vikashbagaria.com'
 
+/** Parse date string (M/D/YY, D/M/YYYY, etc.) to YYYY-MM-DD for HTML date inputs */
+function parseToYYYYMMDD(val) {
+  if (!val) return ''
+  if (val instanceof Date && !isNaN(val)) return val.toISOString().split('T')[0]
+  const s = String(val).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  // Explicitly handle M/D/YY or D/M/YY (e.g. "2/1/26") - Date() can be locale-dependent
+  const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
+  if (slashMatch) {
+    const [, a, b, y] = slashMatch
+    const year = y.length === 2 ? 2000 + parseInt(y, 10) : parseInt(y, 10)
+    const month = parseInt(a, 10)
+    const day = parseInt(b, 10)
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const d = new Date(year, month - 1, day)
+      if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+    }
+    // Try D/M/YY if M/D/YY didn't produce valid date
+    const day2 = parseInt(a, 10)
+    const month2 = parseInt(b, 10)
+    if (month2 >= 1 && month2 <= 12 && day2 >= 1 && day2 <= 31) {
+      const d = new Date(year, month2 - 1, day2)
+      if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+    }
+  }
+  const parsed = new Date(s)
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0]
+  return ''
+}
+
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
@@ -111,7 +141,7 @@ function App() {
   })
   const [headerDate, setHeaderDate] = useState(() => {
     const saved = localStorage.getItem('headerDate')
-    return saved || ''
+    return parseToYYYYMMDD(saved) || ''
   })
   const [headerBorderColor, setHeaderBorderColor] = useState(() => {
     const saved = localStorage.getItem('headerBorderColor')
@@ -364,6 +394,9 @@ function App() {
         if (response.ok) {
           setCurrentUser(data.user)
           localStorage.setItem('currentUser', JSON.stringify(data.user))
+          if (data.user?.id != null) {
+            localStorage.setItem('user_id', String(data.user.id))
+          }
           setUsage(data.user.usage)
           setLoginForm({ username: '', password: '' })
           setActivePage('home')
@@ -382,6 +415,7 @@ function App() {
   const logout = () => {
     setCurrentUser(null)
     localStorage.removeItem('currentUser')
+    localStorage.removeItem('user_id')
     setUsage(null)
     setActivePage('home')
     setSelectedFile(null)
@@ -395,6 +429,16 @@ function App() {
     setImagePreview(null)
     setShowImageModal(false)
     setRationaleResult(null)
+    // Clear sheet/rationale state so it reloads fresh on next login
+    setAllSheets([])
+    setRowRationaleData({})
+    setProcessedRows(new Set())
+    setSelectedSheetId(null)
+    setEditableRationale('')
+    setShowPreview(false)
+    localStorage.removeItem('allSheets')
+    localStorage.removeItem('rowRationaleData')
+    localStorage.removeItem('user_id')
   }
 
   const detectFileType = (filename) => {
@@ -1266,17 +1310,14 @@ function App() {
           }
         }
 
-        // Auto-set Header Date from Expiry Date column
+        // Auto-set Header Date from Expiry Date column (must be YYYY-MM-DD for HTML date inputs)
         const rowData = excelRows[targetIndex]
         if (rowData) {
           const expiryKey = Object.keys(rowData).find(k => k.toLowerCase().includes('expiry') || k.toLowerCase().includes('date'))
           if (expiryKey && rowData[expiryKey]) {
             const val = rowData[expiryKey]
-            if (val instanceof Date) {
-              setHeaderDate(val.toISOString().split('T')[0])
-            } else {
-              setHeaderDate(String(val))
-            }
+            const parsed = parseToYYYYMMDD(val)
+            setHeaderDate(parsed || new Date().toISOString().split('T')[0])
           } else {
             setHeaderDate(new Date().toISOString().split('T')[0])
           }
