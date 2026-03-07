@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from datetime import datetime
 from typing import List, Optional
 from utils.database import get_db
@@ -56,11 +57,20 @@ def get_all_sheets(
     for sid, ridx in rationale_rows:
         processed_by_sheet.setdefault(sid, []).append(ridx)
     
+    # Build response with processed_rows derived from rationales (source of truth)
     result = []
     for sheet in sheets:
-        data = SheetResponse.model_validate(sheet)
-        data.processed_rows = sorted(processed_by_sheet.get(sheet.id, []))
-        result.append(data)
+        processed = sorted(processed_by_sheet.get(sheet.id, []))
+        result.append(SheetResponse(
+            id=sheet.id,
+            client_id=sheet.client_id,
+            file_name=sheet.file_name,
+            upload_date=sheet.upload_date,
+            rows_data=sheet.rows_data,
+            processed_rows=processed,
+            created_at=sheet.created_at,
+            updated_at=sheet.updated_at
+        ))
     
     return SheetListResponse(sheets=result, total=len(sheets))
 
@@ -217,10 +227,11 @@ def create_row_rationale(
         )
         db.add(db_rationale)
         
-        # Update sheet's processed rows (reassign to ensure SQLAlchemy persists JSON mutation)
+        # Update sheet's processed rows (reassign + flag_modified for SQLAlchemy JSON persistence)
         current = list(sheet.processed_rows or [])
         if rationale_data.row_index not in current:
             sheet.processed_rows = current + [rationale_data.row_index]
+            flag_modified(sheet, "processed_rows")
         
         db.commit()
         db.refresh(db_rationale)
