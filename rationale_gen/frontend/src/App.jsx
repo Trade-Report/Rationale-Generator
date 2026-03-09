@@ -2138,32 +2138,62 @@ function App() {
                                       </button>
                                       {hasSavedRationale && (
                                         <>
-                                          <button
-                                            key={`dl-${dataKey}-${downloadedRowKeys.has(dataKey) || rowRationaleData[dataKey]?.downloadedAt ? 'downloaded' : 'new'}`}
-                                            className="btn-icon-only"
-                                            title={(downloadedRowKeys.has(dataKey) || rowRationaleData[dataKey]?.downloadedAt) ? 'Redownload PDF' : 'Download PDF'}
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              downloadSavedRationale(fileInfo.sheetId, idx)
-                                            }}
-                                            style={{
-                                              padding: '4px 6px',
-                                              borderRadius: '4px',
-                                              border: '1px solid var(--border)',
-                                              background: 'var(--surface)',
-                                              cursor: 'pointer',
-                                              color: 'var(--primary)',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '0.25rem',
-                                              fontSize: '0.75rem'
-                                            }}
-                                          >
-                                            <FiDownload />
-                                            {(downloadedRowKeys.has(dataKey) || rowRationaleData[dataKey]?.downloadedAt) && (
-                                              <span style={{ whiteSpace: 'nowrap' }}>Redownload</span>
-                                            )}
-                                          </button>
+                                          {(downloadedRowKeys.has(dataKey) || rowRationaleData[dataKey]?.downloadedAt) ? (
+                                            <>
+                                              <span
+                                                title="PDF exported"
+                                                style={{
+                                                  padding: '4px',
+                                                  color: 'var(--success, #28a745)',
+                                                  display: 'flex',
+                                                  alignItems: 'center'
+                                                }}
+                                              >
+                                                <FiCheckCircle size={18} />
+                                              </span>
+                                              <button
+                                                className="btn-icon-only"
+                                                title="Download PDF again"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  downloadSavedRationale(fileInfo.sheetId, idx)
+                                                }}
+                                                style={{
+                                                  padding: '4px',
+                                                  borderRadius: '4px',
+                                                  border: '1px solid var(--border)',
+                                                  background: 'var(--surface)',
+                                                  cursor: 'pointer',
+                                                  color: 'var(--primary)'
+                                                }}
+                                              >
+                                                <FiDownload size={14} />
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <button
+                                              className="btn-icon-only"
+                                              title="Download PDF"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                downloadSavedRationale(fileInfo.sheetId, idx)
+                                              }}
+                                              style={{
+                                                padding: '4px 6px',
+                                                borderRadius: '4px',
+                                                border: '1px solid var(--border)',
+                                                background: 'var(--surface)',
+                                                cursor: 'pointer',
+                                                color: 'var(--primary)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.25rem',
+                                                fontSize: '0.75rem'
+                                              }}
+                                            >
+                                              <FiDownload />
+                                            </button>
+                                          )}
                                           <button
                                             className="btn-icon-only"
                                             title="Regenerate Rationale"
