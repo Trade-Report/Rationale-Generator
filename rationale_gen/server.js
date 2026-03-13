@@ -6,9 +6,18 @@ const multer = require('multer');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 8081;
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+
+// Proxy /api to Python backend (local dev). Put before other routes.
+// No pathRewrite: Express passes path after mount (e.g. /api/login) - backend expects that.
+app.use('/api', createProxyMiddleware({
+  target: BACKEND_URL,
+  changeOrigin: true
+}));
 
 // Middleware
 app.use(cors());

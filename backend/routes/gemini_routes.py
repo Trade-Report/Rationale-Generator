@@ -1,5 +1,6 @@
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException,Header
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Header, Depends
+from sqlalchemy.orm import Session
 from services.gemini_service import (
     analyze_text_and_image,
     analyze_image_only,
@@ -7,6 +8,8 @@ from services.gemini_service import (
 )
 from utils.image import read_image_as_base64
 from utils.sheet_parser import parse_sheet_to_key_value
+from utils.database import get_db
+from models.usage import Usage
 from fastapi import UploadFile, File
 import json
 
@@ -30,43 +33,53 @@ class PlanType(str, Enum):
     OPTIONS = "Options"
     DERIVATIVES = "Derivatives"
 
+def _record_usage(db: Session, client_id: int, action: str, tokens_used: int):
+    """Record usage to DB for admin visibility. Silently skips on error."""
+    try:
+        db.add(Usage(client_id=client_id, action=action, tokens_used=tokens_used))
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
 @router.post("/analyze-with-rationale")
 async def analyze_with_rationale(
-    trade_data: str = Form(...),            
-    image: UploadFile = File(...),           
-    plan_type: Optional[PlanType] = Form(None) ,
-    prompt: Optional[str] = Form(None) ,
-    x_gemini_api_key: str = Header(..., alias="X-GEMINI-API-KEY") 
- 
+    trade_data: str = Form(...),
+    image: UploadFile = File(...),
+    plan_type: Optional[PlanType] = Form(None),
+    prompt: Optional[str] = Form(None),
+    x_gemini_api_key: str = Header(..., alias="X-GEMINI-API-KEY"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    db: Session = Depends(get_db),
 ):
     validate_image(image)
-    
+
     try:
         trade_dict = json.loads(trade_data)
         if not isinstance(trade_dict, dict):
             raise ValueError
-    except Exception as e:
+    except Exception:
+        raise HTTPException(status_code=400, detail="trade_data must be valid key-value JSON")
 
-        raise HTTPException(
-            status_code=400,
-            detail="trade_data must be valid key-value JSON"
-        )
-
-    # Convert key-value → rationale text
-    rationale_text = "\n".join(
-        f"{k}: {v}" for k, v in trade_dict.items()
-    )
-
+    rationale_text = "\n".join(f"{k}: {v}" for k, v in trade_dict.items())
     image_base64 = read_image_as_base64(image)
     result = await analyze_text_and_image(
         rationale=rationale_text,
         image_base64=image_base64,
         mime_type=image.content_type,
-        plan_type=plan_type,   
+        plan_type=plan_type,
         user_prompt=prompt,
         api_key=x_gemini_api_key
     )
 
+    # Record usage for admin table when client_id is provided
+    if x_user_id:
+        try:
+            cid = int(x_user_id)
+            total = (result.get("usage") or {}).get("total_tokens", 0) or 0
+            _record_usage(db, cid, "analyze_with_rationale", total)
+        except (ValueError, TypeError):
+            pass
 
     return {
         "status": "success",

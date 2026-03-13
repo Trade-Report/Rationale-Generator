@@ -73,12 +73,14 @@ export const TEMPLATES = {
   }
 }
 
-// Use same-origin /api to avoid CORS: vikashbagaria.com + localhost (vite proxy)
-// Only use api subdomain when neither applies (e.g. admin subdomain)
+// Use local backend on localhost; same-origin /api for vikashbagaria.com; live API otherwise.
 function getApiBaseUrl() {
   if (typeof window === 'undefined') return 'https://api.vikashbagaria.com'
   const h = window.location.hostname
-  if (h === 'vikashbagaria.com' || h === 'www.vikashbagaria.com' || h === 'localhost' || h === '127.0.0.1') {
+  if (h === 'localhost' || h === '127.0.0.1') {
+    return 'http://localhost:8000'  // Direct to backend - bypasses Node proxy
+  }
+  if (h === 'vikashbagaria.com' || h === 'www.vikashbagaria.com') {
     return `${window.location.origin}/api`
   }
   return 'https://api.vikashbagaria.com'
@@ -1187,11 +1189,15 @@ function App() {
         formData.append('prompt', effectivePrompt)
         formData.append('plan_type', tradeData['Segment'])
 
+        const analyzeHeaders = {
+          'X-GEMINI-API-KEY': geminiApiKey
+        }
+        if (currentUser?.id != null) {
+          analyzeHeaders['X-User-Id'] = String(currentUser.id)
+        }
         response = await fetch(`${API_BASE_URL}/gemini/analyze-with-rationale`, {
           method: 'POST',
-          headers: {
-            'X-GEMINI-API-KEY': geminiApiKey
-          },
+          headers: analyzeHeaders,
           body: formData
         })
       } else {
@@ -1199,11 +1205,15 @@ function App() {
         const formData = new FormData()
         formData.append('image', imageFile)
 
+        const imageHeaders = {
+          'X-GEMINI-API-KEY': geminiApiKey
+        }
+        if (currentUser?.id != null) {
+          imageHeaders['X-User-Id'] = String(currentUser.id)
+        }
         response = await fetch(`${API_BASE_URL}/gemini/analyze-image-only`, {
           method: 'POST',
-          headers: {
-            'X-GEMINI-API-KEY': geminiApiKey
-          },
+          headers: imageHeaders,
           body: formData
         })
       }

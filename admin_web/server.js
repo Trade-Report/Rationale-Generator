@@ -4,9 +4,18 @@ const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+
+// Proxy /api to Python backend (local dev). Put before other routes.
+// No pathRewrite: when mounted at /api, req.url is already correct (e.g. /admin/login).
+app.use('/api', createProxyMiddleware({
+  target: BACKEND_URL,
+  changeOrigin: true
+}));
 
 // Middleware
 app.use(cors());

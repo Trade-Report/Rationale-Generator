@@ -497,13 +497,22 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
         max_points=10
     )
 
-    key_points_text, _ = await _call_gemini(
+    key_points_text, usage2 = await _call_gemini(
         prompt=key_points_prompt,
         image_base64="",              
         mime_type="text/plain",
         api_key=api_key,
         endpoint="key_points_summary"
     )
+
+    # Combine usage from both Gemini calls
+    combined_usage = {
+        "endpoint": usage.get("endpoint", ""),
+        "model": usage.get("model", ""),
+        "prompt_tokens": usage.get("prompt_tokens", 0) + usage2.get("prompt_tokens", 0),
+        "candidate_tokens": usage.get("candidate_tokens", 0) + usage2.get("candidate_tokens", 0),
+        "total_tokens": usage.get("total_tokens", 0) + usage2.get("total_tokens", 0),
+    }
 
     key_points = format_analysis_points(
         raw_text=key_points_text,
@@ -524,7 +533,7 @@ OUTPUT REQUIREMENTS (VERY IMPORTANT):
     return {
         "analysis": analysis_points,
         "key_points": key_points,
-        "usage": usage
+        "usage": combined_usage
     }
 
 def build_key_points_prompt(analysis_points: list[str], min_points: int = 6, max_points: int = 10) -> str:

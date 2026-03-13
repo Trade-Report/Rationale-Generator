@@ -16,7 +16,19 @@ import {
 import './App.css'
 import { getAuthHeaders } from './api'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.vikashbagaria.com'
+// Localhost: hit backend directly. Otherwise same-origin /api (proxy) or live API.
+function getApiBaseUrl() {
+  if (typeof window === 'undefined') return 'https://api.vikashbagaria.com'
+  const h = window.location.hostname
+  if (h === 'localhost' || h === '127.0.0.1') {
+    return 'http://localhost:8000'
+  }
+  if (h === 'vikashbagaria.com' || h === 'www.vikashbagaria.com') {
+    return `${window.location.origin}/api`
+  }
+  return import.meta.env.VITE_API_URL || 'https://api.vikashbagaria.com'
+}
+const API_BASE_URL = getApiBaseUrl()
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('admin_token'))
@@ -310,8 +322,8 @@ function App() {
                             <strong>{client.username}</strong>
                           </div>
                         </td>
-                        <td>{client.total_requests}</td>
-                        <td>{client.total_tokens.toLocaleString()}</td>
+                        <td>{client.total_requests ?? 0}</td>
+                        <td>{(client.total_tokens ?? 0).toLocaleString()}</td>
                         <td>
                           <div className="action-buttons">
                             <button

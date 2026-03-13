@@ -77,8 +77,8 @@ def get_all_clients(
         {
             "id": r.id,
             "username": r.username,
-            "total_requests": r.total_requests,
-            "total_tokens": r.total_tokens
+            "total_requests": int(r.total_requests or 0),
+            "total_tokens": int(r.total_tokens or 0)
         }
         for r in results
     ]

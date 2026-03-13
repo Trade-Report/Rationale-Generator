@@ -21,7 +21,6 @@ class SheetResponse(BaseModel):
 
     class Config:
         from_attributes = True
-        orm_mode = True
 
 class SheetListResponse(BaseModel):
     sheets: List[SheetResponse]
@@ -57,5 +56,4 @@ class RowRationaleResponse(BaseModel):
 
     class Config:
         from_attributes = True
-        orm_mode = True
 
