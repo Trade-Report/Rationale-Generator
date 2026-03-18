@@ -764,6 +764,19 @@ function App() {
     setActiveTab(0)
   }, [dateFilter, allSheets.length])
 
+  // Auto-fill headerDate from the selected row's Date column (as a plain string)
+  useEffect(() => {
+    if (selectedStockIndex !== null && excelRows[selectedStockIndex]) {
+      const row = excelRows[selectedStockIndex]
+      const rowDate = String(
+        row.Date || row.date || row['Date'] || row['Trade Date'] || row.tradeDate || ''
+      ).trim()
+      if (rowDate) {
+        setHeaderDate(rowDate)
+      }
+    }
+  }, [selectedStockIndex, excelRows])
+
   // Export PDF with provided data (for saved rationales)
   const exportToPDFWithData = async (sheetRows, rowIndex, rationaleData, imagePreviewData, fileName, sheetId) => {
     const rationaleToExport = rationaleData.editableRationale || rationaleData.rationale || ''
