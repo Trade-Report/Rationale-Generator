@@ -43,6 +43,70 @@ import webIconPath from './assets/web.png'
 import addressIconPath from './assets/maps-and-flags.png'
 import { getAuthHeaders } from './api'
 
+const extractAndFormatDate = (row) => {
+  if (!row) return '';
+  const dateKey = Object.keys(row).find(k => {
+    const lower = k.toLowerCase().trim();
+    return lower === 'date' || lower === 'trade date' || lower === 'tradedate';
+  });
+  if (!dateKey) return '';
+  
+  const val = row[dateKey];
+  if (val === null || val === undefined) return '';
+  
+  let d, m, yy;
+  
+  if (typeof val === 'number') {
+    const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+    d = date.getUTCDate();
+    m = date.getUTCMonth() + 1;
+    yy = String(date.getUTCFullYear()).slice(-2);
+    return `${d}/${m}/${yy}`;
+  }
+  
+  if (typeof val === 'string') {
+    const parts = val.split(/[-/]/);
+    if (parts.length === 3) {
+      const p0 = parseInt(parts[0], 10);
+      const p1 = parseInt(parts[1], 10);
+      const p2Str = parts[2].split(' ')[0];
+      const p2 = parseInt(p2Str, 10);
+      
+      if (!isNaN(p0) && !isNaN(p1) && !isNaN(p2)) {
+        if (parts[0].length === 4) {
+          yy = parts[0].slice(-2);
+          m = p1;
+          d = p2;
+        } else {
+          d = p0;
+          m = p1;
+          yy = p2Str.length >= 4 ? p2Str.slice(-2) : p2Str;
+        }
+        return `${d}/${m}/${yy}`;
+      }
+    }
+    
+    const date = new Date(val);
+    if (!isNaN(date)) {
+      d = date.getDate();
+      m = date.getMonth() + 1;
+      yy = String(date.getFullYear()).slice(-2);
+      return `${d}/${m}/${yy}`;
+    }
+    
+    return val.trim();
+  }
+  
+  if (val instanceof Date && !isNaN(val)) {
+    d = val.getDate();
+    m = val.getMonth() + 1;
+    yy = String(val.getFullYear()).slice(-2);
+    return `${d}/${m}/${yy}`;
+  }
+  
+  return String(val).trim();
+};
+
 // Template Configuration - Easy to extend and modify
 // componentOrder defines the order of components in the PDF (header and footer are always first/last)
 // Available components: 'chart', 'tradingDetails', 'technicalCommentary', 'disclaimer'
@@ -764,15 +828,13 @@ function App() {
     setActiveTab(0)
   }, [dateFilter, allSheets.length])
 
-  // Auto-fill headerDate from the selected row's Date column (as a plain string)
+  // Auto-fill headerDate from the selected row's Date column
   useEffect(() => {
     if (selectedStockIndex !== null && excelRows[selectedStockIndex]) {
       const row = excelRows[selectedStockIndex]
-      const rowDate = String(
-        row.Date || row.date || row['Date'] || row['Trade Date'] || row.tradeDate || ''
-      ).trim()
-      if (rowDate) {
-        setHeaderDate(rowDate)
+      const rowDateStr = extractAndFormatDate(row)
+      if (rowDateStr) {
+        setHeaderDate(rowDateStr)
       }
     }
   }, [selectedStockIndex, excelRows])
@@ -1369,12 +1431,10 @@ function App() {
           ))
         }
 
-        // Auto-set Header Date from the row's Date column (as a plain string, no conversion)
+        // Auto-set Header Date from the row's Date column
         const rowData = excelRows[targetIndex]
         if (rowData) {
-          const rowDateStr = String(
-            rowData.Date || rowData.date || rowData['Trade Date'] || rowData.tradeDate || ''
-          ).trim()
+          const rowDateStr = extractAndFormatDate(rowData)
           setHeaderDate(rowDateStr || '')
         }
       } else {
@@ -2436,9 +2496,9 @@ function App() {
                       placeholder={(() => {
                         if (selectedStockIndex !== null && excelRows[selectedStockIndex]) {
                           const row = excelRows[selectedStockIndex]
-                          return String(row.Date || row.date || row['Trade Date'] || row.tradeDate || '').trim() || 'e.g. 19 Mar 2026'
+                          return extractAndFormatDate(row) || 'e.g. 19/3/26'
                         }
-                        return 'e.g. 19 Mar 2026'
+                        return 'e.g. 19/3/26'
                       })()}
                       style={{
                         padding: '0.75rem',
