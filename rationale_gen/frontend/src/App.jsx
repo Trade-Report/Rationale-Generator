@@ -153,7 +153,7 @@ function App() {
   })
   const [headerDate, setHeaderDate] = useState(() => {
     const saved = localStorage.getItem('headerDate')
-    return parseToYYYYMMDD(saved) || ''
+    return saved || ''
   })
   const [headerBorderColor, setHeaderBorderColor] = useState(() => {
     const saved = localStorage.getItem('headerBorderColor')
@@ -395,31 +395,31 @@ function App() {
     setLoginError('')
     try {
       const response = await fetch(`${API_BASE_URL}/api/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(loginForm)
-        })
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(loginForm)
+      })
 
-        const data = await response.json()
+      const data = await response.json()
 
-        if (response.ok) {
-          setCurrentUser(data.user)
-          localStorage.setItem('currentUser', JSON.stringify(data.user))
-          if (data.user?.id != null) {
-            localStorage.setItem('user_id', String(data.user.id))
-          }
-          setUsage(data.user.usage)
-          setLoginForm({ username: '', password: '' })
-          setActivePage('home')
-          if (data.user?.id != null) {
-            loadUsage(data.user.id)
-            loadAllSheets()
-          }
-        } else {
-          setLoginError(data.detail || data.error || 'Login failed')
+      if (response.ok) {
+        setCurrentUser(data.user)
+        localStorage.setItem('currentUser', JSON.stringify(data.user))
+        if (data.user?.id != null) {
+          localStorage.setItem('user_id', String(data.user.id))
         }
+        setUsage(data.user.usage)
+        setLoginForm({ username: '', password: '' })
+        setActivePage('home')
+        if (data.user?.id != null) {
+          loadUsage(data.user.id)
+          loadAllSheets()
+        }
+      } else {
+        setLoginError(data.detail || data.error || 'Login failed')
+      }
     } catch (error) {
       setLoginError('Error connecting to server. Please try again.')
     }
@@ -799,8 +799,9 @@ function App() {
     const templateConfig = TEMPLATES[selectedTemplate] || TEMPLATES.classic
     const componentOrder = templateConfig.componentOrder || ['chart', 'tradingDetails', 'technicalCommentary', 'disclaimer']
 
-    // Determine Header Date
-    const dateForHeader = headerDate || new Date().toISOString().split('T')[0]
+    // Determine Header Date: user-set value > row's Date column (as string) > today
+    const rowDateStr = String(sheetRows[rowIndex]?.Date || sheetRows[rowIndex]?.date || sheetRows[rowIndex]?.['Trade Date'] || sheetRows[rowIndex]?.tradeDate || '').trim()
+    const dateForHeader = headerDate || rowDateStr || new Date().toISOString().split('T')[0]
 
     // Calculate dynamic page height
     const tempDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [420, 800] })
@@ -1621,8 +1622,10 @@ function App() {
     const templateConfig = TEMPLATES[selectedTemplate] || TEMPLATES.classic
     const componentOrder = templateConfig.componentOrder || ['chart', 'tradingDetails', 'technicalCommentary', 'disclaimer']
 
-    // Determine Header Date (User Edited or Default)
-    const dateForHeader = headerDate || new Date().toISOString().split('T')[0]
+    // Determine Header Date: user-set value > row's Date column (as string) > today
+    const selectedRow = excelRows[selectedStockIndex]
+    const rowDateStr = selectedRow ? String(selectedRow.Date || selectedRow.date || selectedRow['Trade Date'] || selectedRow.tradeDate || '').trim() : ''
+    const dateForHeader = headerDate || rowDateStr || new Date().toISOString().split('T')[0]
 
     // Fixed page size: 3× A4 ratio (A4 = 210×297mm, so 630×891mm)
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [420, 594] })
@@ -2418,9 +2421,16 @@ function App() {
                       Report Date (Header):
                     </label>
                     <input
-                      type="date"
+                      type="text"
                       value={headerDate}
                       onChange={(e) => setHeaderDate(e.target.value)}
+                      placeholder={(() => {
+                        if (selectedStockIndex !== null && excelRows[selectedStockIndex]) {
+                          const row = excelRows[selectedStockIndex]
+                          return String(row.Date || row.date || row['Trade Date'] || row.tradeDate || '').trim() || 'e.g. 19 Mar 2026'
+                        }
+                        return 'e.g. 19 Mar 2026'
+                      })()}
                       style={{
                         padding: '0.75rem',
                         borderRadius: '8px',
@@ -2428,7 +2438,9 @@ function App() {
                         background: 'var(--background)',
                         color: 'var(--text-primary)',
                         fontFamily: 'inherit',
-                        fontSize: '1rem'
+                        fontSize: '1rem',
+                        width: '100%',
+                        boxSizing: 'border-box'
                       }}
                     />
                   </div>
@@ -2893,15 +2905,16 @@ function App() {
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="header-date">Date</label>
+                    <label htmlFor="header-date">Date (leave blank to use Date from Excel row)</label>
                     <input
-                      type="date"
+                      type="text"
                       id="header-date"
                       value={headerDate}
                       onChange={(e) => {
                         setHeaderDate(e.target.value)
                         localStorage.setItem('headerDate', e.target.value)
                       }}
+                      placeholder="e.g. 19 Mar 2026"
                       className="form-input"
                     />
                   </div>
