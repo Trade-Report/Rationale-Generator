@@ -1369,21 +1369,17 @@ function App() {
           ))
         }
 
-        // Auto-set Header Date from Expiry Date column (must be YYYY-MM-DD for HTML date inputs)
+        // Auto-set Header Date from the row's Date column (as a plain string, no conversion)
         const rowData = excelRows[targetIndex]
         if (rowData) {
-          const expiryKey = Object.keys(rowData).find(k => k.toLowerCase().includes('expiry') || k.toLowerCase().includes('date'))
-          if (expiryKey && rowData[expiryKey]) {
-            const val = rowData[expiryKey]
-            const parsed = parseToYYYYMMDD(val)
-            setHeaderDate(parsed || new Date().toISOString().split('T')[0])
-          } else {
-            setHeaderDate(new Date().toISOString().split('T')[0])
-          }
+          const rowDateStr = String(
+            rowData.Date || rowData.date || rowData['Trade Date'] || rowData.tradeDate || ''
+          ).trim()
+          setHeaderDate(rowDateStr || '')
         }
       } else {
-        // Default to today for image-only
-        setHeaderDate(new Date().toISOString().split('T')[0])
+        // Default to empty for image-only (no Excel date available)
+        setHeaderDate('')
       }
 
       // Trigger auto-download if it's a refresh action
