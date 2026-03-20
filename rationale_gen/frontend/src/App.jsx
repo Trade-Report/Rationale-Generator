@@ -203,6 +203,7 @@ function App() {
   const [editableKeyPoints, setEditableKeyPoints] = useState([])
   const [showPreview, setShowPreview] = useState(false)
   const disclaimerTextareaRef = useRef(null)
+  const storageLimitNotifiedRef = useRef(false)
   const [raName, setRaName] = useState(() => {
     const saved = localStorage.getItem('raName')
     return saved || ''
@@ -350,14 +351,49 @@ function App() {
     localStorage.setItem('selectedTemplate', selectedTemplate)
   }, [selectedTemplate])
 
+  const clearStorageCacheAndNotify = () => {
+    try {
+      localStorage.removeItem('rowRationaleData')
+      localStorage.removeItem('allSheets')
+      if (!storageLimitNotifiedRef.current) {
+        storageLimitNotifiedRef.current = true
+        alert("Storage limit reached. Cached data has been cleared. Your data is safe on the server.")
+      }
+    } catch (e) {
+      console.warn('Could not clear localStorage:', e.message)
+    }
+  }
+
   // Save all sheets to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('allSheets', JSON.stringify(allSheets))
+    try {
+      localStorage.setItem('allSheets', JSON.stringify(allSheets))
+    } catch (e) {
+      clearStorageCacheAndNotify()
+    }
   }, [allSheets])
 
   // Save row rationale data to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('rowRationaleData', JSON.stringify(rowRationaleData))
+    const saveToStorage = (data) => {
+      try {
+        localStorage.setItem('rowRationaleData', JSON.stringify(data))
+        return true
+      } catch (e) {
+        return false
+      }
+    }
+    if (saveToStorage(rowRationaleData)) return
+    // Quota exceeded or storage disabled - try storing without base64 imagePreview
+    const lighter = Object.fromEntries(
+      Object.entries(rowRationaleData).map(([k, v]) => [
+        k,
+        v && typeof v === 'object' ? { ...v, imagePreview: undefined } : v
+      ])
+    )
+    if (!saveToStorage(lighter)) {
+      clearStorageCacheAndNotify()
+    }
   }, [rowRationaleData])
 
   // Initialize editableRationale when rationaleResult is set
